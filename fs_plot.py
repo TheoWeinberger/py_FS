@@ -305,7 +305,11 @@ def read_bxsf(
             vf = np.einsum(
                 "ij,ij->i", iso1.point_data["Normals"], iso1["gradient"]
             )
-            iso1.point_data["fermi_velocity"] = 1.0 / vf
+            if scale > 1:
+                iso1.point_data["fermi_velocity"] =  -vf
+            else:
+                iso1.point_data["fermi_velocity"] =  vf
+
         isos = [iso1]
 
     # or: mesh.contour(isosurfaces=np.linspace(10, 40, 3)) etc.
@@ -431,7 +435,7 @@ def args_parser():
         "-o",
         "--order",
         metavar="\b",
-        type=float,
+        type=int,
         help="Order of spline for interpolation between 1 and 5",
         default=3,
     )
@@ -450,7 +454,7 @@ def args_parser():
         metavar="\b",
         type=bool,
         help="Compute the Fermi velocity on the surface",
-        default="False",
+        default=False,
     )
 
     return parser
@@ -591,14 +595,14 @@ for file in files:
                     iso,
                     lighting=True,
                     scalars="fermi_velocity",
-                    cmap="jet",
+                    cmap="turbo",
                     opacity=1.0,
                 )
                 plotter.add_mesh(
                     iso,
                     lighting=True,
                     scalars="fermi_velocity",
-                    cmap="jet",
+                    cmap="turbo",
                     opacity=1.0,
                 )
 
@@ -634,7 +638,8 @@ for file in files:
         plotter_ind.camera.azimuth = args.azimuth
         plotter_ind.camera.elevation = args.elevation
         band_index = file.split(".")[-1]
-        plotter_ind.remove_scalar_bar()
+        if args.fermi_velocity == True:
+            plotter_ind.remove_scalar_bar()
         plotter_ind.save_graphic("FS_side_" + band_index + ".pdf")
 
         counter += 1
@@ -645,7 +650,8 @@ for xx in e:
     line = pv.MultipleLines(points=np.array([xx[:, 0], xx[:, 1], xx[:, 2]]).T)
     plotter.add_mesh(line, color="black", line_width=2)
 
-plotter.remove_scalar_bar()
+if args.fermi_velocity == True:
+    plotter.remove_scalar_bar()
 plotter.set_background("white")
 plotter.set_position([0, 0, 0.5 / args.zoom])
 plotter.save_graphic("FS_top.pdf")
