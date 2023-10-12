@@ -108,9 +108,7 @@ def read_bxsf_info(file_name):
     return vec_1, vec_2, vec_3, dimensions, band_index, e_f, cell
 
 
-def read_bxsf(
-    file_name, scale, delta_energy, order, shift_energy, fermi_velocity
-):
+def read_bxsf(file_name, scale, order, shift_energy, fermi_velocity):
     """
     Reads .bxsf file and determines two
     matrices, one corresponding to the eigenvalues
@@ -274,43 +272,24 @@ def read_bxsf(
     if fermi_velocity == True:
         grid = grid.compute_derivative(scalars="values")
 
-    # compute 2 isosurfaces if de is non-zero
-    if delta_energy != 0:
-        iso1 = grid.contour(
-            isosurfaces=1,
-            rng=[
-                e_f + shift_energy - delta_energy,
-                e_f + shift_energy - delta_energy,
-            ],
+    iso1 = grid.contour(
+        isosurfaces=1,
+        rng=[
+            e_f + shift_energy,
+            e_f + shift_energy,
+        ],
+    )
+    if fermi_velocity == True:
+        iso1 = iso1.compute_normals()
+        vf = np.einsum(
+            "ij,ij->i", iso1.point_data["Normals"], iso1["gradient"]
         )
-        iso2 = grid.contour(
-            isosurfaces=1,
-            rng=[
-                e_f + shift_energy + delta_energy,
-                e_f + shift_energy + delta_energy,
-            ],
-        )
-        isos = [iso1, iso2]
-    # else plot single colored surfaces
-    else:
-        iso1 = grid.contour(
-            isosurfaces=1,
-            rng=[
-                e_f + shift_energy - delta_energy,
-                e_f + shift_energy - delta_energy,
-            ],
-        )
-        if fermi_velocity == True:
-            iso1 = iso1.compute_normals()
-            vf = np.einsum(
-                "ij,ij->i", iso1.point_data["Normals"], iso1["gradient"]
-            )
-            if scale > 1:
-                iso1.point_data["fermi_velocity"] =  -vf
-            else:
-                iso1.point_data["fermi_velocity"] =  vf
+        if scale > 1:
+            iso1.point_data["fermi_velocity"] = -vf
+        else:
+            iso1.point_data["fermi_velocity"] = vf
 
-        isos = [iso1]
+    isos = [iso1]
 
     # or: mesh.contour(isosurfaces=np.linspace(10, 40, 3)) etc.
 
@@ -400,14 +379,6 @@ def args_parser():
         default=1.0,
     )
     parser.add_argument(
-        "-de",
-        "--delta-energy",
-        metavar="\b",
-        type=float,
-        help="A small +/- offset for the isosurface energy to allow plotting different colors for inner and outer sheets",
-        default=0.000005,
-    )
-    parser.add_argument(
         "-se",
         "--shift-energy",
         metavar="\b",
@@ -445,7 +416,7 @@ def args_parser():
         metavar="\b",
         type=str,
         choices=["u", "d", "ud", "n"],
-        help="Whether the bands are spin polarised and hence which spins to choose",
+        help="Whether the bands are spin polarised and hence which spins to choose. Options: ['u', 'd', 'ud', 'n']",
         default="n",
     )
     parser.add_argument(
@@ -456,7 +427,38 @@ def args_parser():
         help="Compute the Fermi velocity on the surface",
         default=False,
     )
-
+    parser.add_argument(
+        "-lw",
+        "--line-width",
+        metavar="\b",
+        type=float,
+        help="Linewidth for the Brillouin Zone plot",
+        default=2.0,
+    )
+    parser.add_argument(
+        "-op",
+        "--opacity",
+        metavar="\b",
+        type=float,
+        help="Opacity of the Fermi surface plot, Range: [0, 1]",
+        default=1.0,
+    )
+    parser.add_argument(
+        "-r",
+        "--resolution",
+        metavar="\b",
+        type=float,
+        help="Resoltuion of saved pdf image",
+        default=1.0,
+    )
+    parser.add_argument(
+        "-int",
+        "--interactive",
+        metavar="\b",
+        type=bool,
+        help="Interactive Fermi Surface visualisation",
+        default=True,
+    )
     return parser
 
 
@@ -527,6 +529,7 @@ args = parser.parse_args()
 file_name = args.name
 scale = args.interpolation_factor
 order = args.order
+opacity = args.opacity
 
 # load in bxsf files
 files = load_files(args)
@@ -543,11 +546,22 @@ if order < 1 or order > 5:
     print("Error: Please choose a interpolation order between 1 aned 5")
     exit()
 
-if args.fermi_velocity == True:
-    args.delta_energy = 0
+if opacity > 1 or opacity < 0:
+    print("Error: Please choose an opacity between 0 and 1")
+    exit()
+
 
 # initialise 3D visualisation
-plotter = pv.Plotter()
+plotter = pv.Plotter(
+    off_screen=True,
+    window_size=[
+        int(round(args.resolution * 1024)),
+        int(round(args.resolution * 768)),
+    ],
+)
+
+if args.interactive == True:
+    plotter_int = pv.Plotter()
 
 # get cell for FS plot
 _, _, _, _, _, _, cell = read_bxsf_info(files[0])
@@ -573,7 +587,6 @@ for file in files:
     k_vectors, eig_vals, e_f, cell, dimensions, isos = read_bxsf(
         file,
         scale,
-        delta_energy=args.delta_energy,
         order=order,
         shift_energy=args.shift_energy,
         fermi_velocity=args.fermi_velocity,
@@ -582,7 +595,13 @@ for file in files:
     vec2 = cell[1] * (dimensions[1] - scale) / dimensions[1]
     vec3 = cell[2] * (dimensions[2] - scale) / dimensions[2]
 
-    plotter_ind = pv.Plotter()
+    plotter_ind = pv.Plotter(
+        off_screen=True,
+        window_size=[
+            int(round(args.resolution * 1024)),
+            int(round(args.resolution * 768)),
+        ],
+    )
 
     for iso in isos:
 
@@ -606,21 +625,38 @@ for file in files:
                     opacity=1.0,
                 )
 
+                if args.interactive == True:
+                    plotter_int.add_mesh(
+                        iso,
+                        lighting=True,
+                        scalars="fermi_velocity",
+                        cmap="turbo",
+                        opacity=1.0,
+                    )
+
             else:
                 plotter.add_mesh(
                     iso,
                     lighting=True,
-                    color=color_list[counter],
-                    opacity=1.0,
-                    clim=[-1, 2],
+                    color=color_list[2 * counter],
+                    opacity=args.opacity,
+                    backface_params={"color": color_list[2 * counter + 1]},
                 )
                 plotter_ind.add_mesh(
                     iso,
                     lighting=True,
-                    color=color_list[counter],
-                    opacity=1.0,
-                    clim=[-1, 2],
+                    color=color_list[2 * counter],
+                    opacity=args.opacity,
+                    backface_params={"color": color_list[2 * counter + 1]},
                 )
+                if args.interactive == True:
+                    plotter_int.add_mesh(
+                        iso,
+                        lighting=True,
+                        color=color_list[2 * counter],
+                        opacity=args.opacity,
+                        backface_params={"color": color_list[2 * counter + 1]},
+                    )
 
         except:
             # print(file + " contains an empty mesh")
@@ -630,7 +666,11 @@ for file in files:
             line = pv.MultipleLines(
                 points=np.array([xx[:, 0], xx[:, 1], xx[:, 2]]).T
             )
-            plotter_ind.add_mesh(line, color="black", line_width=2)
+            plotter_ind.add_mesh(
+                line,
+                color="black",
+                line_width=args.resolution * args.line_width,
+            )
 
         plotter_ind.set_background("white")
         plotter_ind.camera_position = "yz"
@@ -648,20 +688,60 @@ for file in files:
 # plot BZ
 for xx in e:
     line = pv.MultipleLines(points=np.array([xx[:, 0], xx[:, 1], xx[:, 2]]).T)
-    plotter.add_mesh(line, color="black", line_width=2)
+    plotter.add_mesh(
+        line, color="black", line_width=args.resolution * args.line_width
+    )
+    if args.interactive == True:
+        plotter_int.add_mesh(line, color="black", line_width=args.line_width)
+
 
 if args.fermi_velocity == True:
     plotter.remove_scalar_bar()
-plotter.set_background("white")
-plotter.set_position([0, 0, 0.5 / args.zoom])
-plotter.save_graphic("FS_top.pdf")
 
 plotter.set_background("white")
 plotter.camera_position = "yz"
 plotter.set_position([0.5 / args.zoom, 0, 0])
 plotter.camera.azimuth = args.azimuth
 plotter.camera.elevation = args.elevation
-plotter.save_graphic("FS_side.pdf")
+plotter.save_graphic("FS.pdf")
 
+if args.interactive == True:
+    plotter_int.set_background("white")
+    plotter_int.camera_position = "yz"
+    plotter_int.set_position([0.5 / args.zoom, 0, 0])
+    plotter_int.camera.azimuth = args.azimuth
+    plotter_int.camera.elevation = args.elevation
+    if args.fermi_velocity == True:
+        plotter_int.remove_scalar_bar()
+    plotter_int.show()
 
-plotter.show()
+    camera_coord = np.array(
+        [
+            plotter_int.camera.position[0],
+            plotter_int.camera.position[1],
+            plotter_int.camera.position[2],
+        ]
+    )
+
+    if plotter_int.camera.position[1] != 0:
+        elevation_rad = np.arctan(
+            plotter_int.camera.position[2] / plotter_int.camera.position[1]
+        )
+        elevation_deg = np.degrees(elevation_rad)
+    else:
+        elevation_deg = 90
+
+    if plotter_int.camera.position[1] != 0:
+        azimuth_rad = np.arctan(
+            plotter_int.camera.position[0] / plotter_int.camera.position[1]
+        )
+        azimuth_deg = np.degrees(azimuth_rad)
+    else:
+        azimuth_deg = 90
+
+    zoom = 0.5 / np.linalg.norm(camera_coord)
+
+    print("\nFinal Camera coordinates were:")
+    print(f"\tAzimuthal angle: {azimuth_deg}")
+    print(f"\tElevation: {elevation_deg}")
+    print(f"\tZoom: {zoom}")
