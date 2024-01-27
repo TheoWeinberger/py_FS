@@ -141,6 +141,7 @@ def read_bxsf(file_name, scale, order, shift_energy, fermi_velocity):
             eigen_text = lines_conc.split(line)[1]
             break
     eigen_text = eigen_text.split("END_BANDGRID_3D")[0]
+    eigen_text = re.sub(' +', ' ', eigen_text)
     eigen_vals = eigen_text.split(" ")
     eigen_vals = [val.strip("\n") for val in eigen_vals]
     eigen_vals = eigen_vals[1:-1]
