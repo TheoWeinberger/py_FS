@@ -129,6 +129,10 @@ def read_bxsf(file_name, scale, order, shift_energy, fermi_velocity):
     vec_1, vec_2, vec_3, dimensions, band_index, e_f, cell = read_bxsf_info(
         file_name
     )
+    
+    vec_1 = vec_1*(dimensions[0]+1)/dimensions[0]
+    vec_2 = vec_2*(dimensions[1]+1)/dimensions[1]
+    vec_3 = vec_3*(dimensions[2]+1)/dimensions[2]
 
     """
     Now extract eigenvalues
@@ -137,7 +141,7 @@ def read_bxsf(file_name, scale, order, shift_energy, fermi_velocity):
     # get eerything after band index
     lines_conc = "".join(lines)
     for line in lines:
-        if "BAND" in line and band_index in line:
+        if "BAND:" in line and band_index in line:
             eigen_text = lines_conc.split(line)[1]
             break
     eigen_text = eigen_text.split("END_BANDGRID_3D")[0]
@@ -317,6 +321,8 @@ def get_brillouin_zone_3d(cell):
         bz_facets: BZ facets
 
     """
+
+   
 
     px, py, pz = np.tensordot(cell, np.mgrid[-1:2, -1:2, -1:2], axes=[0, 0])
     points = np.c_[px.ravel(), py.ravel(), pz.ravel()]
