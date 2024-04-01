@@ -19,15 +19,10 @@ Plot Fermi Surfaces
 
 import numpy as np
 from matplotlib import pyplot as plt
-import matplotlib
-from scipy.linalg import norm
 import pyvista as pv
-import pandas as pd
 import seaborn as sns
-import copy
 import re
 import glob
-import sys
 import scienceplots
 from scipy.ndimage import map_coordinates
 import argparse
@@ -47,7 +42,7 @@ def read_bxsf_info(file_name):
     lines = f.readlines()
 
     """
-    this corresponds to code for gettinf the fermi eneryg
+    this corresponds to code for getting the fermi energy
     """
     # get fermi energy
     x = lines[1].split(" ")
@@ -66,7 +61,7 @@ def read_bxsf_info(file_name):
 
     # get dimensions
     x = re.findall(r"\d+", lines[7])
-    # convert dimesions to integer values
+    # convert dimensions to integer values
     dimensions = [int(dim) for dim in x]
 
     """
@@ -77,7 +72,7 @@ def read_bxsf_info(file_name):
     vec_1 = [val.strip("\n") for val in vec_1]
     vec_1 = [val.strip("\t") for val in vec_1]
     vec_1 = [val for _, val in enumerate(vec_1) if val != ""]
-    # convert dimesions to integer values
+    # convert dimensions to float values
     vec_1 = [float(val) for val in vec_1]
 
     # second spanning vector
@@ -85,7 +80,7 @@ def read_bxsf_info(file_name):
     vec_2 = [val.strip("\n") for val in vec_2]
     vec_2 = [val.strip("\t") for val in vec_2]
     vec_2 = [val for _, val in enumerate(vec_2) if val != ""]
-    # convert dimesions to integer values
+    # convert dimensions to float values
     vec_2 = [float(val) for val in vec_2]
 
     # thrid spanning vector
@@ -93,7 +88,7 @@ def read_bxsf_info(file_name):
     vec_3 = [val.strip("\n") for val in vec_3]
     vec_3 = [val.strip("\t") for val in vec_3]
     vec_3 = [val for _, val in enumerate(vec_3) if val != ""]
-    # convert dimesions to integer values
+    # convert dimensions to float values
     vec_3 = [float(val) for val in vec_3]
 
     vec_1 = np.array(vec_1)
@@ -129,7 +124,7 @@ def read_bxsf(file_name, scale, order, shift_energy, fermi_velocity):
     vec_1, vec_2, vec_3, dimensions, band_index, e_f, cell = read_bxsf_info(
         file_name
     )
-    
+
     vec_1 = vec_1*(dimensions[0]+1)/dimensions[0]
     vec_2 = vec_2*(dimensions[1]+1)/dimensions[1]
     vec_3 = vec_3*(dimensions[2]+1)/dimensions[2]
@@ -138,7 +133,7 @@ def read_bxsf(file_name, scale, order, shift_energy, fermi_velocity):
     Now extract eigenvalues
     """
 
-    # get eerything after band index
+    # get everything after band index
     lines_conc = "".join(lines)
     for line in lines:
         if "BAND:" in line and band_index in line:
@@ -322,7 +317,7 @@ def get_brillouin_zone_3d(cell):
 
     """
 
-   
+
 
     px, py, pz = np.tensordot(cell, np.mgrid[-1:2, -1:2, -1:2], axes=[0, 0])
     points = np.c_[px.ravel(), py.ravel(), pz.ravel()]
@@ -466,6 +461,22 @@ def args_parser():
         help="Interactive Fermi Surface visualisation",
         default=True,
     )
+    parser.add_argument(
+        "-bn",
+        "--band-name",
+        metavar="\b",
+        type=bool,
+        help="Add Band index to the plots",
+        default=False,
+    )
+    parser.add_argument(
+        "-f",
+        "--format",
+        type=str,
+        help="The format of the saved figure (png, jpg, pdf). Multiple choice are allowed.",
+        choices=["png", "jpg", "pdf"],
+        default='pdf',
+    )
     return parser
 
 
@@ -537,6 +548,8 @@ file_name = args.name
 scale = args.interpolation_factor
 order = args.order
 opacity = args.opacity
+formt = args.format
+
 
 # load in bxsf files
 files = load_files(args)
@@ -555,6 +568,10 @@ if order < 1 or order > 5:
 
 if opacity > 1 or opacity < 0:
     print("Error: Please choose an opacity between 0 and 1")
+    exit()
+
+if formt not in ["png", "jpg", "pdf"]:
+    print('Error: File format not allowed')
     exit()
 
 
@@ -687,7 +704,17 @@ for file in files:
         band_index = file.split(".")[-1]
         if args.fermi_velocity == True:
             plotter_ind.remove_scalar_bar()
-        plotter_ind.save_graphic("FS_side_" + band_index + ".pdf")
+        if args.band_name == True:
+            plotter_ind.add_title('Band ' + band_index.split('-')[1])
+
+        # Save individual plots
+        if formt == "pdf":
+            plotter_ind.save_graphic("FS_side_" + band_index + ".pdf")
+        elif formt == "png":
+            plotter_ind.screenshot("FS_side_" + band_index + ".png")
+        elif formt == "jpg":
+            plotter_ind.screenshot("FS_side_" + band_index + ".jpg")
+
 
         counter += 1
 
@@ -710,7 +737,16 @@ plotter.camera_position = "yz"
 plotter.set_position([0.5 / args.zoom, 0, 0])
 plotter.camera.azimuth = args.azimuth
 plotter.camera.elevation = args.elevation
-plotter.save_graphic("FS.pdf")
+if args.band_name == True:
+    plotter.add_title('Total Fermi Surface')
+
+# Save overall plot
+if formt == "pdf":
+    plotter.save_graphic("FS.pdf")
+elif formt == "png":
+    plotter.screenshot("FS.png")
+elif formt == "jpg":
+    plotter.screenshot("FS.jpg")
 
 if args.interactive == True:
     plotter_int.set_background("white")
