@@ -473,7 +473,7 @@ def args_parser():
         "-f",
         "--format",
         type=str,
-        help="The format of the saved figure (png, jpg, pdf). Multiple choice are allowed.",
+        help="The format of the saved figure (png, jpg, pdf).",
         choices=["png", "jpg", "pdf"],
         default='pdf',
     )
