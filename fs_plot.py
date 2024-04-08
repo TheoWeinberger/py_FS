@@ -477,6 +477,14 @@ def args_parser():
         choices=["png", "jpg", "pdf"],
         default='pdf',
     )
+    parser.add_argument(
+        "-pr",
+        "--projection",
+        type=str,
+        help="Whether surfaces are projected in parallel mode or perspective",
+        choices=["parallel", "perspective", "par", "per"],
+        default='parallel',
+    )
     return parser
 
 
@@ -550,6 +558,12 @@ order = args.order
 opacity = args.opacity
 formt = args.format
 
+#get the projection
+projection = args.projection
+if projection == "par":
+    projection = "parallel"
+if projection == "per":
+    projection == "perspective"
 
 # load in bxsf files
 files = load_files(args)
@@ -574,6 +588,11 @@ if formt not in ["png", "jpg", "pdf"]:
     print('Error: File format not allowed')
     exit()
 
+if projection not in ["parallel", "perspective", "par", "per"]:
+    print('Error: Projection type not allowed')
+    exit()
+
+
 
 # initialise 3D visualisation
 plotter = pv.Plotter(
@@ -584,8 +603,13 @@ plotter = pv.Plotter(
     ],
 )
 
+if projection == "parallel":
+    plotter.enable_parallel_projection()
+
 if args.interactive == True:
     plotter_int = pv.Plotter()
+    if projection == "parallel":
+        plotter_int.enable_parallel_projection()
 
 # get cell for FS plot
 _, _, _, _, _, _, cell = read_bxsf_info(files[0])
@@ -626,6 +650,9 @@ for file in files:
             int(round(args.resolution * 768)),
         ],
     )
+
+    if projection == "parallel":
+        plotter_ind.enable_parallel_projection()
 
     for iso in isos:
 
