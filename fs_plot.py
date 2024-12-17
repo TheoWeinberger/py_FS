@@ -451,13 +451,14 @@ def get_brillouin_zone_3d(cell):
     return vor.vertices[bz_vertices], bz_ridges, bz_facets
 
 
-def run_skeaf(file, args):
+def run_skeaf(file, band_index, args):
     """
     Run skeaf on the current bxsf file to determine the orbital
     path for plotting
 
     Args:
         file: current file to run SKEAF on
+        band_index: current band index being viewed
         args: cmd line parsed args
     """
 
@@ -495,9 +496,15 @@ def run_skeaf(file, args):
         f_out.write("1" + "\n")
     f_out.close()
 
-    popen = subprocess.Popen([r"skeaf", "-rdcfg", "-nodos"])
+    try:
+        os.rename(
+            f"./skeaf_out/results_orbitoutlines_invau.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}.out", "results_orbitoutlines_invau.out"
+        )
+    except:
 
-    popen.wait()
+        popen = subprocess.Popen([r"skeaf", "-rdcfg", "-nodos"])
+
+        popen.wait()
 
 
 def organise_skeaf(band_index, args):
@@ -509,26 +516,41 @@ def organise_skeaf(band_index, args):
         args: cmd line parsed args
     """
 
-    os.rename(
-        "results_freqvsangle.out",
-        f"./skeaf_out/results_freqvsangle.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}.out",
-    )
-    os.rename(
-        "results_long.out",
-        f"./skeaf_out/results_long.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}.out",
-    )
-    os.rename(
-        "results_short.out",
-        f"./skeaf_out/results_short.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}.out",
-    )
-    os.rename(
-        "results_orbitoutlines_invAng.out",
-        f"./skeaf_out/results_orbitoutlines_invAng.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}.out",
-    )
-    os.rename(
-        "results_orbitoutlines_invau.out",
-        f"./skeaf_out/results_orbitoutlines_invau.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}.out",
-    )
+    try:
+        os.rename(
+            "results_freqvsangle.out",
+            f"./skeaf_out/results_freqvsangle.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}.out",
+        )
+    except:
+        pass
+    try:
+        os.rename(
+            "results_long.out",
+            f"./skeaf_out/results_long.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}.out",
+        )
+    except:
+        pass
+    try:
+        os.rename(
+            "results_short.out",
+            f"./skeaf_out/results_short.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}.out",
+        )
+    except:
+        pass
+    try:
+        os.rename(
+            "results_orbitoutlines_invAng.out",
+            f"./skeaf_out/results_orbitoutlines_invAng.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}.out",
+        )
+    except:
+        pass
+    try:
+        os.rename(
+            "results_orbitoutlines_invau.out",
+            f"./skeaf_out/results_orbitoutlines_invau.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}.out",
+        )
+    except:
+        pass
 
 
 def plot_skeaf():
@@ -1015,7 +1037,7 @@ for file in files:
         plotter_ind.enable_parallel_projection()
 
     if args.skeaf == True:
-        run_skeaf(file, args)
+        run_skeaf(file, file.split(".")[-1], args)
         orbits_list = plot_skeaf()
 
     for iso in isos:
