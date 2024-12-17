@@ -21,18 +21,111 @@ import numpy as np
 from matplotlib import pyplot as plt
 import pyvista as pv
 import seaborn as sns
+import matplotlib as mpl
 import re
 import glob
+import os
+import subprocess
 import scienceplots
+import io
 from scipy.ndimage import map_coordinates
 import argparse
 import ast
+import pandas as pd
+
+pv.global_theme.colorbar_orientation = "vertical"
 
 # define some plotting parameters for rough
 # plotting of output
 plt.style.use(["nature"])
 cp = sns.color_palette("Set2")
 # pv.rcParams['transparent_background'] = True
+
+
+def shiftedColorMap(cmap, start=0, midpoint=0.5, stop=1.0, name="shiftedcmap"):
+    """
+    Function to offset the "center" of a colormap. Useful for
+    data with a negative min and positive max and you want the
+    middle of the colormap's dynamic range to be at zero.
+
+    Input
+    -----
+      cmap : The matplotlib colormap to be altered
+      start : Offset from lowest point in the colormap's range.
+          Defaults to 0.0 (no lower offset). Should be between
+          0.0 and `midpoint`.
+      midpoint : The new center of the colormap. Defaults to
+          0.5 (no shift). Should be between 0.0 and 1.0. In
+          general, this should be  1 - vmax / (vmax + abs(vmin))
+          For example if your data range from -15.0 to +5.0 and
+          you want the center of the colormap at 0.0, `midpoint`
+          should be set to  1 - 5/(5 + 15)) or 0.75
+      stop : Offset from highest point in the colormap's range.
+          Defaults to 1.0 (no upper offset). Should be between
+          `midpoint` and 1.0.
+    """
+    cdict = {"red": [], "green": [], "blue": [], "alpha": []}
+
+    # regular index to compute the colors
+    reg_index = np.linspace(start, stop, 257)
+
+    # shifted index to match the data
+    shift_index = np.hstack(
+        [
+            np.linspace(0.0, midpoint, 128, endpoint=False),
+            np.linspace(midpoint, 1.0, 129, endpoint=True),
+        ]
+    )
+
+    for ri, si in zip(reg_index, shift_index):
+        r, g, b, a = cmap(ri)
+
+        cdict["red"].append((si, r, r))
+        cdict["green"].append((si, g, g))
+        cdict["blue"].append((si, b, b))
+        cdict["alpha"].append((si, a, a))
+
+    newcmap = mpl.colors.LinearSegmentedColormap(name, cdict)
+    plt.register_cmap(cmap=newcmap)
+
+    return newcmap
+
+
+class MidpointNormalize(mpl.colors.Normalize):
+    def __init__(self, vmin, vmax, midpoint=0, clip=False):
+        self.midpoint = midpoint
+        mpl.colors.Normalize.__init__(self, vmin, vmax, clip)
+
+    def __call__(self, value, clip=None):
+        normalized_min = max(
+            0,
+            1
+            / 2
+            * (
+                1
+                - abs(
+                    (self.midpoint - self.vmin) / (self.midpoint - self.vmax)
+                )
+            ),
+        )
+        normalized_max = min(
+            1,
+            1
+            / 2
+            * (
+                1
+                + abs(
+                    (self.vmax - self.midpoint) / (self.midpoint - self.vmin)
+                )
+            ),
+        )
+        normalized_mid = 0.5
+        x, y = [self.vmin, self.midpoint, self.vmax], [
+            normalized_min,
+            normalized_mid,
+            normalized_max,
+        ]
+        return np.ma.masked_array(np.interp(value, x, y))
 
 
 def read_bxsf_info(file_name):
@@ -103,7 +196,9 @@ def read_bxsf_info(file_name):
     return vec_1, vec_2, vec_3, dimensions, band_index, e_f, cell
 
 
-def read_bxsf(file_name, scale, order, shift_energy, fermi_velocity):
+def read_bxsf(
+    file_name, scale, order, shift_energy, fermi_velocity, scalar="None"
+):
     """
     Reads .bxsf file and determines two
     matrices, one corresponding to the eigenvalues
@@ -125,9 +220,9 @@ def read_bxsf(file_name, scale, order, shift_energy, fermi_velocity):
         file_name
     )
 
-    vec_1 = vec_1*(dimensions[0]+1)/dimensions[0]
-    vec_2 = vec_2*(dimensions[1]+1)/dimensions[1]
-    vec_3 = vec_3*(dimensions[2]+1)/dimensions[2]
+    vec_1 = vec_1 * (dimensions[0] + 1) / dimensions[0]
+    vec_2 = vec_2 * (dimensions[1] + 1) / dimensions[1]
+    vec_3 = vec_3 * (dimensions[2] + 1) / dimensions[2]
 
     """
     Now extract eigenvalues
@@ -140,7 +235,7 @@ def read_bxsf(file_name, scale, order, shift_energy, fermi_velocity):
             eigen_text = lines_conc.split(line)[1]
             break
     eigen_text = eigen_text.split("END_BANDGRID_3D")[0]
-    eigen_text = re.sub(' +', ' ', eigen_text)
+    eigen_text = re.sub(" +", " ", eigen_text)
     eigen_vals = eigen_text.split(" ")
     eigen_vals = [val.strip("\n") for val in eigen_vals]
     eigen_vals = eigen_vals[1:-1]
@@ -257,9 +352,9 @@ def read_bxsf(file_name, scale, order, shift_energy, fermi_velocity):
         np.array(z_vals) / dimensions[2],
     )
     grid.dimensions = [
-        2 * dimensions_int[2] + 1 - 2 * scale,
         2 * dimensions_int[1] + 1 - 2 * scale,
         2 * dimensions_int[0] + 1 - 2 * scale,
+        2 * dimensions_int[2] + 1 - 2 * scale,
     ]
 
     # create a structured grid
@@ -267,6 +362,18 @@ def read_bxsf(file_name, scale, order, shift_energy, fermi_velocity):
     # note the fortran-order call to ravel()!
     # grid = pv.StructuredGrid(X, Y, Z)
     grid.point_data["values"] = out_data.flatten()  # also the active scalars
+
+    if scalar != "None":
+        scalar_files = glob.glob(scalar + "*bxsf*")
+        try:
+            scalar_file = scalar_files[0]
+            _, _, _, _, _, _, scalar_grid = read_bxsf(
+                scalar_file, scale, order, 0, False
+            )
+            grid.point_data["scalar_field"] = scalar_grid["values"]
+        except:
+            print("Error: File for scalar fields does not exist")
+            exit()
 
     # calculate gradient
     if fermi_velocity == True:
@@ -278,16 +385,20 @@ def read_bxsf(file_name, scale, order, shift_energy, fermi_velocity):
             e_f + shift_energy,
             e_f + shift_energy,
         ],
+        scalars="values",
     )
     if fermi_velocity == True:
-        iso1 = iso1.compute_normals()
-        vf = np.einsum(
-            "ij,ij->i", iso1.point_data["Normals"], iso1["gradient"]
-        )
-        if scale > 1:
-            iso1.point_data["fermi_velocity"] = -vf
-        else:
-            iso1.point_data["fermi_velocity"] = vf
+        try:
+            iso1 = iso1.compute_normals()
+            vf = np.einsum(
+                "ij,ij->i", iso1.point_data["Normals"], iso1["gradient"]
+            )
+            if scale > 1:
+                iso1.point_data["fermi_velocity"] = -vf
+            else:
+                iso1.point_data["fermi_velocity"] = vf
+        except:
+            pass
 
     isos = [iso1]
 
@@ -298,7 +409,7 @@ def read_bxsf(file_name, scale, order, shift_energy, fermi_velocity):
     # close file
     f.close()
 
-    return k_vectors, eig_vals, e_f, cell, dimensions, isos
+    return k_vectors, eig_vals, e_f, cell, dimensions, isos, grid
 
 
 def get_brillouin_zone_3d(cell):
@@ -316,8 +427,6 @@ def get_brillouin_zone_3d(cell):
         bz_facets: BZ facets
 
     """
-
-
 
     px, py, pz = np.tensordot(cell, np.mgrid[-1:2, -1:2, -1:2], axes=[0, 0])
     points = np.c_[px.ravel(), py.ravel(), pz.ravel()]
@@ -340,6 +449,113 @@ def get_brillouin_zone_3d(cell):
     bz_vertices = list(set(bz_vertices))
 
     return vor.vertices[bz_vertices], bz_ridges, bz_facets
+
+
+def run_skeaf(file, args):
+    """
+    Run skeaf on the current bxsf file to determine the orbital
+    path for plotting
+
+    Args:
+        file: current file to run SKEAF on
+        args: cmd line parsed args
+    """
+
+    try:
+        os.mkdir("./skeaf_out")
+    except:
+        pass
+
+    # generate config file for ca
+    file_io = open(file, "r")
+
+    # get Fermi energy
+    for line in file_io:
+        if re.search("Fermi Energy:", line):
+            line = line.replace(" ", "")
+            Ef = line.removeprefix("FermiEnergy:")
+            Ef = Ef.strip("\n")
+            break
+
+    with open("config.in", "w") as f_out:
+        f_out.write(str(file.split("/")[-1]) + "\n")
+        f_out.write(str(Ef) + "\n")
+        f_out.write(str(args.skeaf_interpolate) + "\n")
+        f_out.write(str(args.skeaf_theta) + "\n")
+        f_out.write(str(args.skeaf_phi) + "\n")
+        f_out.write("n" + "\n")
+        f_out.write(str(args.skeaf_min) + "\n")
+        f_out.write(str(args.skeaf_min_frac_diff) + "\n")
+        f_out.write(str(args.skeaf_min_dist) + "\n")
+        f_out.write("y" + "\n")
+        f_out.write(str(args.skeaf_theta) + "\n")
+        f_out.write(str(args.skeaf_theta) + "\n")
+        f_out.write(str(args.skeaf_phi) + "\n")
+        f_out.write(str(args.skeaf_phi) + "\n")
+        f_out.write("1" + "\n")
+    f_out.close()
+
+    popen = subprocess.Popen([r"skeaf", "-rdcfg", "-nodos"])
+
+    popen.wait()
+
+
+def organise_skeaf(band_index, args):
+    """
+    Move SKEAF output files into dedicated folder
+
+    Args:
+        band-index: current band index being viewed
+        args: cmd line parsed args
+    """
+
+    os.rename(
+        "results_freqvsangle.out",
+        f"./skeaf_out/results_freqvsangle.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}.out",
+    )
+    os.rename(
+        "results_long.out",
+        f"./skeaf_out/results_long.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}.out",
+    )
+    os.rename(
+        "results_short.out",
+        f"./skeaf_out/results_short.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}.out",
+    )
+    os.rename(
+        "results_orbitoutlines_invAng.out",
+        f"./skeaf_out/results_orbitoutlines_invAng.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}.out",
+    )
+    os.rename(
+        "results_orbitoutlines_invau.out",
+        f"./skeaf_out/results_orbitoutlines_invau.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}.out",
+    )
+
+
+def plot_skeaf():
+    """
+    Convert SKEAF output to readable form
+    for plotting
+
+    Returns:
+        orbits_list: list of dataframes containing orbital information
+    """
+
+    orbits_file = open("results_orbitoutlines_invau.out").read()
+    orbits_split = orbits_file.split("kz")
+    orbits_list = []
+    for i in range(len(orbits_split) - 1):
+        orbit = pd.read_csv(
+            io.StringIO(
+                orbits_split[i + 1]
+                .split("Slice")[0][1:]
+                .replace("  ", " ")
+                .replace(" ", ",")
+            ),
+            header=None,
+        )
+        orbits_list += [orbit]
+
+    return orbits_list
 
 
 def args_parser():
@@ -472,19 +688,142 @@ def args_parser():
     parser.add_argument(
         "-f",
         "--format",
+        metavar="\b",
         type=str,
         help="The format of the saved figure (png, jpg, pdf). Multiple choice are allowed.",
         choices=["png", "jpg", "pdf"],
-        default='pdf',
+        default="pdf",
     )
     parser.add_argument(
         "-pr",
         "--projection",
+        metavar="\b",
         type=str,
         help="Whether surfaces are projected in parallel mode or perspective",
         choices=["parallel", "perspective", "par", "per"],
-        default='parallel',
+        default="parallel",
     )
+    parser.add_argument(
+        "-sc",
+        "--scalar",
+        metavar="\b",
+        type=str,
+        help="Name of file containing a scalar field to plot on the Fermi surface",
+        default="None",
+    )
+    parser.add_argument(
+        "-cmp",
+        "--colourmap",
+        metavar="\b",
+        type=str,
+        help="The plot colourmap",
+        default="turbo",
+    )
+    parser.add_argument(
+        "-cb",
+        "--colourbar",
+        metavar="\b",
+        type=bool,
+        help="Whether to plot colorbar for scalar fields or vf",
+        default=False,
+    )
+    parser.add_argument(
+        "-norm",
+        "--normalise",
+        metavar="\b",
+        type=bool,
+        help="Whether to renormalise the plot around 0",
+        default=False,
+    )
+    parser.add_argument(
+        "-pow",
+        "--power",
+        metavar="\b",
+        type=int,
+        help="Power scaling of scalar field",
+        default=1,
+    )
+    parser.add_argument(
+        "-nc",
+        "--no-clip",
+        metavar="\b",
+        type=bool,
+        help="Whether to clip isosurface",
+        default=False,
+    )
+    parser.add_argument(
+        "-sk",
+        "--skeaf",
+        metavar="\b",
+        type=bool,
+        help="Whether to run SKEAF to calculate extremal orbital areas",
+        default=False,
+    )
+    parser.add_argument(
+        "-sk-t",
+        "--skeaf-theta",
+        metavar="\b",
+        type=float,
+        help="Theta angle for extremal loop calculation",
+        default=0.0,
+    )
+    parser.add_argument(
+        "-sk-p",
+        "--skeaf-phi",
+        metavar="\b",
+        type=float,
+        help="Phi angle for extremal loop calculation",
+        default=0.0,
+    )
+    parser.add_argument(
+        "-sk-min",
+        "--skeaf-min",
+        metavar="\b",
+        type=float,
+        help="Minimum extremal FS frequency (kT)",
+        default=0.0,
+    )
+    parser.add_argument(
+        "-sk-mfd",
+        "--skeaf-min-frac-diff",
+        metavar="\b",
+        type=float,
+        help="Maximum fractional diff. between orbit freqs. for averaging",
+        default=0.01,
+    )
+    parser.add_argument(
+        "-sk-md",
+        "--skeaf-min-dist",
+        metavar="\b",
+        type=float,
+        help="Maximum distance between orbit avg. coords. for averaging",
+        default=0.05,
+    )
+    parser.add_argument(
+        "-sk-i",
+        "--skeaf-interpolate",
+        metavar="\b",
+        type=int,
+        help="Interpolated number of points per single side",
+        default=100,
+    )
+    parser.add_argument(
+        "-sk-lw",
+        "--skeaf-linewidth",
+        metavar="\b",
+        type=float,
+        help="Linewidth of SKEAF orbit in plot",
+        default=1.5,
+    )
+    parser.add_argument(
+        "-sk-c",
+        "--skeaf-colour",
+        metavar="\b",
+        type=str,
+        help="Colour of SKEAF orbit plot",
+        default="red",
+    )
+
     return parser
 
 
@@ -558,7 +897,7 @@ order = args.order
 opacity = args.opacity
 formt = args.format
 
-#get the projection
+# get the projection
 projection = args.projection
 if projection == "par":
     projection = "parallel"
@@ -585,13 +924,18 @@ if opacity > 1 or opacity < 0:
     exit()
 
 if formt not in ["png", "jpg", "pdf"]:
-    print('Error: File format not allowed')
+    print("Error: File format not allowed")
     exit()
 
 if projection not in ["parallel", "perspective", "par", "per"]:
-    print('Error: Projection type not allowed')
+    print("Error: Projection type not allowed")
     exit()
 
+if args.scalar != "None" and args.fermi_velocity is True:
+    print(
+        "Error: Cannot plot both the Fermi velocity and a scalar field on the Fermi surface"
+    )
+    exit()
 
 
 # initialise 3D visualisation
@@ -628,17 +972,30 @@ edges = bz_surf.extract_all_edges()
 # make output colorlist
 color_list = sns.color_palette("hls", 2 * len(files))
 counter = 0
+
+if args.scalar != "None":
+    scalar_file = glob.glob(args.scalar + "*bxsf*")[0]
+    _, scalar_vals, _, _, _, _, _ = read_bxsf(
+        scalar_file,
+        1,
+        order=1,
+        shift_energy=0,
+        fermi_velocity=False,
+    )
+
 for file in files:
 
     print(file)
 
-    k_vectors, eig_vals, e_f, cell, dimensions, isos = read_bxsf(
+    k_vectors, eig_vals, e_f, cell, dimensions, isos, _ = read_bxsf(
         file,
         scale,
         order=order,
         shift_energy=args.shift_energy,
         fermi_velocity=args.fermi_velocity,
+        scalar=args.scalar,
     )
+
     vec1 = cell[0] * (dimensions[0] - scale) / dimensions[0]
     vec2 = cell[1] * (dimensions[1] - scale) / dimensions[1]
     vec3 = cell[2] * (dimensions[2] - scale) / dimensions[2]
@@ -651,39 +1008,112 @@ for file in files:
         ],
     )
 
+    if args.scalar != "None" or args.fermi_velocity is True:
+        cp = sns.color_palette(args.colourmap, as_cmap=True)
+
     if projection == "parallel":
         plotter_ind.enable_parallel_projection()
+
+    if args.skeaf == True:
+        run_skeaf(file, args)
+        orbits_list = plot_skeaf()
 
     for iso in isos:
 
         try:
 
-            iso = iso.clip_surface(bz_surf, invert=True)
+            if args.no_clip == False:
+
+                iso = iso.clip_surface(bz_surf, invert=True)
 
             if args.fermi_velocity == True:
+
                 plotter_ind.add_mesh(
                     iso,
                     lighting=True,
                     scalars="fermi_velocity",
-                    cmap="turbo",
+                    cmap=cp,
                     opacity=1.0,
                 )
                 plotter.add_mesh(
                     iso,
                     lighting=True,
                     scalars="fermi_velocity",
-                    cmap="turbo",
+                    cmap=cp,
                     opacity=1.0,
                 )
+                if args.colourbar == False:
+                    plotter.remove_scalar_bar()
+                    plotter_ind.remove_scalar_bar()
 
                 if args.interactive == True:
                     plotter_int.add_mesh(
                         iso,
                         lighting=True,
                         scalars="fermi_velocity",
-                        cmap="turbo",
+                        cmap=cp,
                         opacity=1.0,
                     )
+                    if args.colourbar == False:
+                        plotter_int.remove_scalar_bar()
+
+            elif args.scalar != "None":
+                if args.power > 1:
+                    mask = np.where(iso["scalar_field"] >= 0, 1, -1)
+                    iso["scalar_field"] = iso["scalar_field"] ** args.power
+                    if args.power % 2 == 0:
+                        iso["scalar_field"] = iso["scalar_field"] * mask
+
+                if args.normalise == True:
+                    iso["scalar_field"] = iso["scalar_field"] / max(
+                        abs(scalar_vals.flatten().min()),
+                        abs(scalar_vals.flatten().min()),
+                    )
+                    c_max = iso["scalar_field"].min()
+                    c_min = iso["scalar_field"].max()
+
+                    abs_max = max(abs(c_max), abs(c_min))
+                    ratio_max = c_max / (2 * abs_max)
+                    ratio_min = c_min / (2 * abs_max)
+
+                    cp = shiftedColorMap(
+                        cp,
+                        start=0.5 + ratio_min,
+                        midpoint=(1.0 + ratio_max + ratio_min) / 2,
+                        stop=0.5 + ratio_max,
+                        name=f"{file}",
+                    )
+                    cp = cp.reversed()
+
+                plotter_ind.add_mesh(
+                    iso,
+                    lighting=True,
+                    scalars="scalar_field",
+                    cmap=cp,
+                    opacity=1.0,
+                )
+                plotter.add_mesh(
+                    iso,
+                    lighting=True,
+                    scalars="scalar_field",
+                    cmap=cp,
+                    opacity=1.0,
+                )
+
+                if args.colourbar == False:
+                    plotter.remove_scalar_bar()
+                    plotter_ind.remove_scalar_bar()
+
+                if args.interactive == True:
+                    plotter_int.add_mesh(
+                        iso,
+                        lighting=True,
+                        scalars="scalar_field",
+                        cmap=cp,
+                        opacity=1.0,
+                    )
+                    if args.colourbar == False:
+                        plotter_int.remove_scalar_bar()
 
             else:
                 plotter.add_mesh(
@@ -723,16 +1153,37 @@ for file in files:
                 line_width=args.resolution * args.line_width,
             )
 
+        if args.skeaf == True:
+            for orbit in orbits_list:
+                orbit_line = pv.MultipleLines(
+                    points=np.array(
+                        [
+                            orbit[1] / (2 * np.pi),
+                            orbit[2] / (2 * np.pi),
+                            orbit[3] / (2 * np.pi),
+                        ]
+                    ).T
+                )
+                plotter_ind.add_mesh(
+                    orbit_line,
+                    color=args.skeaf_colour,
+                    line_width=args.resolution
+                    * args.line_width
+                    * args.skeaf_linewidth,
+                )
+
         plotter_ind.set_background("white")
         plotter_ind.camera_position = "yz"
         plotter_ind.set_position([0.5 / args.zoom, 0, 0])
         plotter_ind.camera.azimuth = args.azimuth
         plotter_ind.camera.elevation = args.elevation
         band_index = file.split(".")[-1]
-        if args.fermi_velocity == True:
-            plotter_ind.remove_scalar_bar()
         if args.band_name == True:
-            plotter_ind.add_title('Band ' + band_index.split('-')[1])
+            plotter_ind.add_title("Band " + band_index.split("-")[1])
+
+        if args.skeaf == True:
+
+            organise_skeaf(band_index, args)
 
         # Save individual plots
         if formt == "pdf":
@@ -741,7 +1192,6 @@ for file in files:
             plotter_ind.screenshot("FS_side_" + band_index + ".png")
         elif formt == "jpg":
             plotter_ind.screenshot("FS_side_" + band_index + ".jpg")
-
 
         counter += 1
 
@@ -756,16 +1206,13 @@ for xx in e:
         plotter_int.add_mesh(line, color="black", line_width=args.line_width)
 
 
-if args.fermi_velocity == True:
-    plotter.remove_scalar_bar()
-
 plotter.set_background("white")
 plotter.camera_position = "yz"
 plotter.set_position([0.5 / args.zoom, 0, 0])
 plotter.camera.azimuth = args.azimuth
 plotter.camera.elevation = args.elevation
 if args.band_name == True:
-    plotter.add_title('Total Fermi Surface')
+    plotter.add_title("Total Fermi Surface")
 
 # Save overall plot
 if formt == "pdf":
@@ -781,8 +1228,6 @@ if args.interactive == True:
     plotter_int.set_position([0.5 / args.zoom, 0, 0])
     plotter_int.camera.azimuth = args.azimuth
     plotter_int.camera.elevation = args.elevation
-    if args.fermi_velocity == True:
-        plotter_int.remove_scalar_bar()
     plotter_int.show()
 
     camera_coord = np.array(
