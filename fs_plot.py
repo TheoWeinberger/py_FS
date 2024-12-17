@@ -1164,6 +1164,13 @@ for file in files:
                         ]
                     ).T
                 )
+                plotter.add_mesh(
+                    orbit_line,
+                    color=args.skeaf_colour,
+                    line_width=args.resolution
+                    * args.line_width
+                    * args.skeaf_linewidth,
+                )
                 plotter_ind.add_mesh(
                     orbit_line,
                     color=args.skeaf_colour,
@@ -1171,6 +1178,14 @@ for file in files:
                     * args.line_width
                     * args.skeaf_linewidth,
                 )
+                if args.interactive == True:
+                    plotter_int.add_mesh(
+                        orbit_line,
+                        color=args.skeaf_colour,
+                        line_width=args.resolution
+                        * args.line_width
+                        * args.skeaf_linewidth,
+                    )
 
         plotter_ind.set_background("white")
         plotter_ind.camera_position = "yz"
