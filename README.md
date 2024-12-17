@@ -32,6 +32,10 @@ This code has been developed and tested with the following packages on a Linux 2
     - seaborn 0.11.2
     - copy from python 3.9.10
 
+To use SKEAF for calculating extremal orbits the code expects to find an executable named skeaf
+in the users bin. The correct version of SKEAF can be found in the folder fs_plot_skeaf along with a 
+makefile for ifort openmp compilation
+
 ## Examples
 
 Directory contains example .bxsf files foir UTe2. To test, run fs_plot.py UTe2
