@@ -502,16 +502,29 @@ def run_skeaf(file, band_index, args):
         f_out.write("1" + "\n")
     f_out.close()
 
-    try:
-        os.rename(
-            f"./skeaf_out/results_orbitoutlines_invau.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}.out", "results_orbitoutlines_invau.out"
-        )
-    except:
+    if args.shift_energy == 0.0:
 
-        popen = subprocess.Popen([r"skeaf", "-rdcfg", "-nodos"])
+        try:
+            os.rename(
+                f"./skeaf_out/results_orbitoutlines_invau.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}.out", "results_orbitoutlines_invau.out"
+            )
+        except:
 
-        popen.wait()
+            popen = subprocess.Popen([r"skeaf", "-rdcfg", "-nodos"])
 
+            popen.wait()
+
+    else:
+
+        try:
+            os.rename(
+                f"./skeaf_out/results_orbitoutlines_invau.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}_se_{args.shift_energy}.out", "results_orbitoutlines_invau.out"
+            )
+        except:
+
+            popen = subprocess.Popen([r"skeaf", "-rdcfg", "-nodos"])
+
+            popen.wait()
 
 def organise_skeaf(band_index, args):
     """
@@ -522,42 +535,80 @@ def organise_skeaf(band_index, args):
         args: cmd line parsed args
     """
 
-    try:
-        os.rename(
-            "results_freqvsangle.out",
-            f"./skeaf_out/results_freqvsangle.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}.out",
-        )
-    except:
-        pass
-    try:
-        os.rename(
-            "results_long.out",
-            f"./skeaf_out/results_long.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}.out",
-        )
-    except:
-        pass
-    try:
-        os.rename(
-            "results_short.out",
-            f"./skeaf_out/results_short.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}.out",
-        )
-    except:
-        pass
-    try:
-        os.rename(
-            "results_orbitoutlines_invAng.out",
-            f"./skeaf_out/results_orbitoutlines_invAng.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}.out",
-        )
-    except:
-        pass
-    try:
-        os.rename(
-            "results_orbitoutlines_invau.out",
-            f"./skeaf_out/results_orbitoutlines_invau.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}.out",
-        )
-    except:
-        pass
+    if args.shift_energy == 0.0:
 
+        try:
+            os.rename(
+                "results_freqvsangle.out",
+                f"./skeaf_out/results_freqvsangle.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}.out",
+            )
+        except:
+            pass
+        try:
+            os.rename(
+                "results_long.out",
+                f"./skeaf_out/results_long.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}.out",
+            )
+        except:
+            pass
+        try:
+            os.rename(
+                "results_short.out",
+                f"./skeaf_out/results_short.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}.out",
+            )
+        except:
+            pass
+        try:
+            os.rename(
+                "results_orbitoutlines_invAng.out",
+                f"./skeaf_out/results_orbitoutlines_invAng.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}.out",
+            )
+        except:
+            pass
+        try:
+            os.rename(
+                "results_orbitoutlines_invau.out",
+                f"./skeaf_out/results_orbitoutlines_invau.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}.out",
+            )
+        except:
+            pass
+
+    else:
+        try:
+            os.rename(
+                "results_freqvsangle.out",
+                f"./skeaf_out/results_freqvsangle.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}_se_{args.shift_energy}.out",
+            )
+        except:
+            pass
+        try:
+            os.rename(
+                "results_long.out",
+                f"./skeaf_out/results_long.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}_se_{args.shift_energy}.out",
+            )
+        except:
+            pass
+        try:
+            os.rename(
+                "results_short.out",
+                f"./skeaf_out/results_short.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}_se_{args.shift_energy}.out",
+            )
+        except:
+            pass
+        try:
+            os.rename(
+                "results_orbitoutlines_invAng.out",
+                f"./skeaf_out/results_orbitoutlines_invAng.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}_se_{args.shift_energy}.out",
+            )
+        except:
+            pass
+        try:
+            os.rename(
+                "results_orbitoutlines_invau.out",
+                f"./skeaf_out/results_orbitoutlines_invau.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}_se_{args.shift_energy}.out",
+            )
+        except:
+            pass
 
 def plot_skeaf():
     """
