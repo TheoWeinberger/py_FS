@@ -486,7 +486,7 @@ def run_skeaf(file, band_index, args):
 
     with open("config.in", "w") as f_out:
         f_out.write(str(file.split("/")[-1]) + "\n")
-        f_out.write(str(Ef) + "\n")
+        f_out.write(str(float(Ef)+args.shift_energy) + "\n")
         f_out.write(str(args.skeaf_interpolate) + "\n")
         f_out.write(str(args.skeaf_theta) + "\n")
         f_out.write(str(args.skeaf_phi) + "\n")
