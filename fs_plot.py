@@ -309,7 +309,6 @@ def read_bxsf(
     else:
 
         out_data = eig_vals.swapaxes(2,0)
-        print(out_data.shape)
         dimensions_int = dimensions
         out_grid_z, out_grid_y, out_grid_x = np.meshgrid(
             range(-dimensions_int[2] + 1, dimensions_int[2]),
@@ -317,7 +316,6 @@ def read_bxsf(
             range(-dimensions_int[0] + 1, dimensions_int[0]),
             indexing='ij'
         )
-        print(out_grid_x.shape)
 
     x_vals = []
     y_vals = []
