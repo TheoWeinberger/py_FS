@@ -32,6 +32,7 @@ from scipy.ndimage import map_coordinates
 import argparse
 import ast
 import pandas as pd
+from scipy.interpolate import splprep, splev
 
 pv.global_theme.colorbar_orientation = "vertical"
 
@@ -632,7 +633,19 @@ def plot_skeaf():
             ),
             header=None,
         )
-        orbits_list += [orbit]
+        orbit.loc[len(orbit.index)] = orbit.loc[0]
+        if args.skeaf_line_interpolate != 1:
+            tck, u = splprep([orbit[1], orbit[2], orbit[3]], k=args.skeaf_line_order, s=args.skeaf_line_smoothness)
+            u = np.linspace(0,1, len(u)*args.skeaf_line_interpolate, endpoint=True)
+            new_points = splev(u, tck)
+            orbit_int = pd.DataFrame([])
+            orbit_int[0] = np.zeros_like(new_points[0])
+            orbit_int[1] = new_points[0]
+            orbit_int[2] = new_points[1]
+            orbit_int[3] = new_points[2]
+            orbits_list += [orbit_int]   
+        else:
+            orbits_list += [orbit]
 
     return orbits_list
 
@@ -885,6 +898,30 @@ def args_parser():
         type=int,
         help="Interpolated number of points per single side",
         default=100,
+    )
+    parser.add_argument(
+        "-sk-li",
+        "--skeaf-line-interpolate",
+        metavar="\b",
+        type=int,
+        help="Interpolation factor for SKEAF orbits lines when plotting",
+        default=1,
+    )
+    parser.add_argument(
+        "-sk-lo",
+        "--skeaf-line-order",
+        metavar="\b",
+        type=int,
+        help="Interpolation order for SKEAF orbits lines when plotting",
+        default=3,
+    )
+    parser.add_argument(
+        "-sk-ls",
+        "--skeaf-line-smoothness",
+        metavar="\b",
+        type=float,
+        help="Spline smoothness for SKEAF orbits lines when plotting, should be very small < 0.0001",
+        default=0.0,
     )
     parser.add_argument(
         "-sk-lw",
