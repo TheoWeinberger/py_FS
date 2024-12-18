@@ -485,6 +485,13 @@ def args_parser():
         choices=["parallel", "perspective", "par", "per"],
         default='parallel',
     )
+    parser.add_argument(
+        "-c",
+        "--clip",
+        type=bool,
+        help="Whether FS needs to be truncated to the first BZ",
+        default=True,
+    )
     return parser
 
 
@@ -660,7 +667,7 @@ for file in files:
 
         try:
 
-            iso = iso.clip_surface(bz_surf, invert=True)
+            if args.clip: iso = iso.clip_surface(bz_surf, invert=True)
 
             if args.fermi_velocity == True:
                 plotter_ind.add_mesh(
