@@ -220,6 +220,7 @@ def read_bxsf(
         file_name
     )
 
+
     vec_1 = vec_1 * (dimensions[0] + 1) / dimensions[0]
     vec_2 = vec_2 * (dimensions[1] + 1) / dimensions[1]
     vec_3 = vec_3 * (dimensions[2] + 1) / dimensions[2]
@@ -241,15 +242,16 @@ def read_bxsf(
     eigen_vals = eigen_vals[1:-1]
     eigen_vals = [float(val) for val in eigen_vals]
 
-    eigenvalues = np.array(eigen_vals).reshape(dimensions)
 
-    eig_vals = np.zeros(dimensions)
+    eig_vals = np.reshape(eigen_vals, dimensions, order='C')
+
+    '''    eig_vals = np.zeros(dimensions)
     for i in range(dimensions[0]):
         for j in range(dimensions[1]):
             for k in range(dimensions[2]):
                 eig_vals[i, j, k] = eigen_vals[
                     dimensions[2] * dimensions[1] * i + dimensions[2] * j + k
-                ]
+                ]'''
 
     eig_vals = np.tile(eig_vals, (2, 2, 2))
 
@@ -272,13 +274,14 @@ def read_bxsf(
         )
 
         x_vals_int, y_vals_int, z_vals_int = np.meshgrid(
-            x_vals_int, y_vals_int, z_vals_int
+            x_vals_int, y_vals_int, z_vals_int, indexing='ij'
         )
 
-        out_grid_x, out_grid_y, out_grid_z = np.meshgrid(
-            range(-dimensions_int[0] + scale, dimensions_int[0] - scale + 1),
-            range(-dimensions_int[1] + scale, dimensions_int[1] - scale + 1),
+        out_grid_z, out_grid_y, out_grid_x = np.meshgrid(
             range(-dimensions_int[2] + scale, dimensions_int[2] - scale + 1),
+            range(-dimensions_int[1] + scale, dimensions_int[1] - scale + 1),
+            range(-dimensions_int[0] + scale, dimensions_int[0] - scale + 1),
+            indexing='ij'
         )
 
         out_grid_x = out_grid_x / scale
@@ -301,15 +304,20 @@ def read_bxsf(
             2 * dimensions_int[2] - 2 * scale + 1,
         )
 
+        out_data = out_data.swapaxes(2,0)
+
     else:
 
-        out_data = eig_vals
+        out_data = eig_vals.swapaxes(2,0)
+        print(out_data.shape)
         dimensions_int = dimensions
-        out_grid_y, out_grid_x, out_grid_z = np.meshgrid(
-            range(-dimensions_int[0] + 1, dimensions_int[0]),
-            range(-dimensions_int[1] + 1, dimensions_int[1]),
+        out_grid_z, out_grid_y, out_grid_x = np.meshgrid(
             range(-dimensions_int[2] + 1, dimensions_int[2]),
+            range(-dimensions_int[1] + 1, dimensions_int[1]),
+            range(-dimensions_int[0] + 1, dimensions_int[0]),
+            indexing='ij'
         )
+        print(out_grid_x.shape)
 
     x_vals = []
     y_vals = []
@@ -352,8 +360,8 @@ def read_bxsf(
         np.array(z_vals) / dimensions[2],
     )
     grid.dimensions = [
-        2 * dimensions_int[1] + 1 - 2 * scale,
         2 * dimensions_int[0] + 1 - 2 * scale,
+        2 * dimensions_int[1] + 1 - 2 * scale,
         2 * dimensions_int[2] + 1 - 2 * scale,
     ]
 
