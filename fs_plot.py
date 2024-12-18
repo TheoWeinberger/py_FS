@@ -782,7 +782,7 @@ def args_parser():
         "--format",
         metavar="\b",
         type=str,
-        help="The format of the saved figure (png, jpg, pdf). Multiple choice are allowed.",
+        help="The format of the saved figure (png, jpg, pdf).",
         choices=["png", "jpg", "pdf"],
         default="pdf",
     )
@@ -1086,7 +1086,9 @@ edges = bz_surf.extract_all_edges()
 
 
 # make output colorlist
-color_list = sns.color_palette("hls", 2 * len(files))
+files = sorted(files, key=lambda s: int(s.split('-')[-1][-3:]))
+color_list = plt.cm.rainbow(np.linspace(0, 1, 2 * len(files)))
+#color_list = sns.color_palette("hls", 2 * len(files))
 counter = 0
 
 if args.scalar != "None":
