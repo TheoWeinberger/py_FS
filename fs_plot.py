@@ -42,6 +42,82 @@ plt.style.use(["nature"])
 cp = sns.color_palette("Set2")
 # pv.rcParams['transparent_background'] = True
 
+def check_voronoi(P, a1, a2, a3, lattice_points_range=2):
+    """
+    Checks if the point P lies within the Voronoi tile centered at the origin,
+    spanned by the lattice vectors a1, a2, and a3 in 3D space.
+
+    Parameters:
+    P (np.array): The point to check (3D vector).
+    a1 (np.array): The first lattice vector (3D vector).
+    a2 (np.array): The second lattice vector (3D vector).
+    a3 (np.array): The third lattice vector (3D vector).
+    lattice_points_range (int): The range of (m, n, p) values to check lattice points.
+
+    Returns:
+    bool: True if the point lies inside the Voronoi tile, False otherwise.
+    """
+
+    # Check distances to all lattice points (m * a1 + n * a2 + p * a3)
+    indices = []
+    for m in range(-lattice_points_range, lattice_points_range + 1):
+        for n in range(-lattice_points_range, lattice_points_range + 1):
+            for p in range(-lattice_points_range, lattice_points_range + 1):
+                if m == 0 and n == 0 and p == 0:
+                    continue  # Skip the origin itself
+                if np.linalg.norm(P - (m*a1+n*a2+p*a3))<np.linalg.norm(P):
+                    indices.append([m,n,p])
+    sorted_indices = sorted(indices, key=lambda x: np.linalg.norm(P - (x[0]*a1+x[1]*a2+x[2]*a3)))
+
+    if len(indices)>0:
+        return np.array(sorted_indices[0])
+    elif len(indices)==0:
+        return np.array([0, 0, 0])
+
+def modify_invau(file_path, dataframes):
+    """
+    Replaces numerical values below the kx, ky, kz row in a file with corresponding values from the provided dataframes.
+
+    :param file_path: str, path to the file to read and modify in place.
+    :param dataframes: list of pd.DataFrame, new data to replace the kx, ky, kz rows in each slice.
+    """
+
+    with open(file_path, 'r') as file:
+        lines = file.readlines()
+
+    # Initialize variables
+    new_lines = []
+    dataframe_index = 0
+    inside_k_points = False
+
+    for line in lines:
+        if "Slice" in line:
+            inside_k_points = False
+            new_lines.append(line)
+        elif "Points" in line:
+            inside_k_points = False
+            new_lines.append(line)
+        elif "kx" in line:
+            # When encountering the kx, ky, kz header, enable k-points replacement
+            inside_k_points = True
+            new_lines.append(line)
+
+            # Add data from the corresponding DataFrame
+            if dataframe_index < len(dataframes):
+                df = dataframes[dataframe_index]
+                for _, row in df.iterrows():
+                    new_lines.append(f" {row[1]:.6E} {row[2]:.6E} {row[3]:.6E}\n")
+                dataframe_index += 1
+            else:
+                raise ValueError("Not enough DataFrames provided for the number of slices.")
+        elif inside_k_points and re.match(r"\s*-?\d+\.\d+E[+-]\d+\s+-?\d+\.\d+E[+-]\d+\s+-?\d+\.\d+E[+-]\d+", line):
+            continue
+        else:
+            new_lines.append(line)
+
+    # Write the modified content back to the same file
+    with open(file_path, 'w') as file:
+        file.writelines(new_lines)
 
 def shiftedColorMap(cmap, start=0, midpoint=0.5, stop=1.0, name="shiftedcmap"):
     """
@@ -471,6 +547,7 @@ def run_skeaf(file, band_index, args):
 
     try:
         os.mkdir("./skeaf_out")
+        os.mkdir("./skeaf_out/other")
     except:
         pass
 
@@ -541,28 +618,28 @@ def organise_skeaf(band_index, args):
         try:
             os.rename(
                 "results_freqvsangle.out",
-                f"./skeaf_out/results_freqvsangle.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}.out",
+                f"./skeaf_out/other/results_freqvsangle.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}.out",
             )
         except:
             pass
         try:
             os.rename(
                 "results_long.out",
-                f"./skeaf_out/results_long.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}.out",
+                f"./skeaf_out/other/results_long.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}.out",
             )
         except:
             pass
         try:
             os.rename(
                 "results_short.out",
-                f"./skeaf_out/results_short.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}.out",
+                f"./skeaf_out/other/results_short.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}.out",
             )
         except:
             pass
         try:
             os.rename(
                 "results_orbitoutlines_invAng.out",
-                f"./skeaf_out/results_orbitoutlines_invAng.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}.out",
+                f"./skeaf_out/other/results_orbitoutlines_invAng.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}.out",
             )
         except:
             pass
@@ -578,40 +655,40 @@ def organise_skeaf(band_index, args):
         try:
             os.rename(
                 "results_freqvsangle.out",
-                f"./skeaf_out/results_freqvsangle.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}_se_{args.shift_energy}.out",
+                f"./skeaf_out/other/results_freqvsangle.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}_se_{args.shift_energy}.out",
             )
         except:
             pass
         try:
             os.rename(
                 "results_long.out",
-                f"./skeaf_out/results_long.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}_se_{args.shift_energy}.out",
+                f"./skeaf_out/other/results_long.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}_se_{args.shift_energy}.out",
             )
         except:
             pass
         try:
             os.rename(
                 "results_short.out",
-                f"./skeaf_out/results_short.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}_se_{args.shift_energy}.out",
+                f"./skeaf_out/other/results_short.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}_se_{args.shift_energy}.out",
             )
         except:
             pass
         try:
             os.rename(
                 "results_orbitoutlines_invAng.out",
-                f"./skeaf_out/results_orbitoutlines_invAng.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}_se_{args.shift_energy}.out",
+                f"./skeaf_out/other/results_orbitoutlines_invAng.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}_se_{args.shift_energy}.out",
             )
         except:
             pass
         try:
             os.rename(
                 "results_orbitoutlines_invau.out",
-                f"./skeaf_out/results_orbitoutlines_invau.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}_se_{args.shift_energy}.out",
+                f"./skeaf_out/other/results_orbitoutlines_invau.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}_se_{args.shift_energy}.out",
             )
         except:
             pass
 
-def plot_skeaf():
+def plot_skeaf(band_index):
     """
     Convert SKEAF output to readable form
     for plotting
@@ -643,9 +720,42 @@ def plot_skeaf():
             orbit_int[1] = new_points[0]
             orbit_int[2] = new_points[1]
             orbit_int[3] = new_points[2]
-            orbits_list += [orbit_int]   
+            orbits_list += [orbit_int]
         else:
             orbits_list += [orbit]
+
+    ##############################################################################
+    # Make sure all orbits lie in the first BZ
+
+    mod_orbits_list = []
+    for orbit in orbits_list:
+        o = orbit.to_numpy()[:,1:]/(2*np.pi)
+
+        # Change basis from conventional to reciprocal coordinates
+        o_basis_ch = np.array([np.linalg.inv(cell.T).dot(i).tolist() for i in o])
+
+        # Determine one point on a given orbit that will be used to find the shift in k-space
+        lowest_vector = min(o, key=lambda v: np.linalg.norm(v))
+        cv = check_voronoi(lowest_vector, cell[0,:], cell[1,:], cell[2,:])
+
+        # Shift in k-space so that point lies within the first BZ
+        o_basis_ch_inside = o_basis_ch
+        for i in range(len(o[:,0])):
+            if np.any(cv!=0):
+                o_basis_ch_inside[i,0] = o_basis_ch[i,0]-cv[0]
+                o_basis_ch_inside[i,1] = o_basis_ch[i,1]-cv[1]
+                o_basis_ch_inside[i,2] = o_basis_ch[i,2]-cv[2]
+
+        # Change basis back to conventional coordinates
+        o_inside = np.array([(cell.T.dot(i.T)).tolist() for i in o_basis_ch_inside])
+
+        orbit = orbit.to_numpy()
+        orbit[:,1:] = o_inside*(2*np.pi)
+        orbit =  pd.DataFrame(orbit)
+        mod_orbits_list += [orbit.iloc[:, 1:]]
+
+    ##############################################################################
+    modify_invau("results_orbitoutlines_invau.out", mod_orbits_list)
 
     return orbits_list
 
@@ -939,7 +1049,30 @@ def args_parser():
         help="Colour of SKEAF orbit plot",
         default="red",
     )
-
+    parser.add_argument(
+        "-clipx",
+        "--clip-in-x",
+        metavar="\b",
+        type=float,
+        help="Clip by given amount in the x-direction",
+        default=0,
+    )
+    parser.add_argument(
+        "-clipy",
+        "--clip-in-y",
+        metavar="\b",
+        type=float,
+        help="Clip by given amount in the y-direction",
+        default=0,
+    )
+    parser.add_argument(
+        "-clipz",
+        "--clip-in-z",
+        metavar="\b",
+        type=float,
+        help="Clip by given amount in the z-direction",
+        default=0,
+    )
     return parser
 
 
@@ -1086,7 +1219,8 @@ edges = bz_surf.extract_all_edges()
 
 
 # make output colorlist
-color_list = sns.color_palette("hls", 2 * len(files))
+files = sorted(files, key=lambda s: int(s.split('-')[-1][-3:]))
+color_list = plt.cm.rainbow(np.linspace(0, 1, 2 * len(files)))
 counter = 0
 
 if args.scalar != "None":
@@ -1132,15 +1266,27 @@ for file in files:
 
     if args.skeaf == True:
         run_skeaf(file, file.split(".")[-1], args)
-        orbits_list = plot_skeaf()
+        orbits_list = plot_skeaf(file.split(".")[-1])
 
     for iso in isos:
 
         try:
 
             if args.no_clip == False:
-
                 iso = iso.clip_surface(bz_surf, invert=True)
+
+            if args.clip_in_x > 0:
+                iso = iso.clip(normal='x', origin=( args.clip_in_x, 0, 0),invert=True)
+                iso = iso.clip(normal='x', origin=(-args.clip_in_x, 0, 0),invert=False)
+
+            if args.clip_in_y > 0:
+                iso = iso.clip(normal='y', origin=(0, args.clip_in_y, 0),invert=True)
+                iso = iso.clip(normal='y', origin=(0,-args.clip_in_y, 0),invert=False)
+
+            if args.clip_in_z > 0:
+                iso = iso.clip(normal='z', origin=(0, 0, args.clip_in_z),invert=True)
+                iso = iso.clip(normal='z', origin=(0, 0,-args.clip_in_z),invert=False)
+
 
             if args.fermi_velocity == True:
 
@@ -1271,6 +1417,7 @@ for file in files:
 
         if args.skeaf == True:
             for orbit in orbits_list:
+
                 orbit_line = pv.MultipleLines(
                     points=np.array(
                         [
