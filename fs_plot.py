@@ -74,6 +74,51 @@ def check_voronoi(P, a1, a2, a3, lattice_points_range=2):
     elif len(indices)==0:
         return np.array([0, 0, 0])
 
+def modify_invau(file_path, dataframes):
+    """
+    Replaces numerical values below the kx, ky, kz row in a file with corresponding values from the provided dataframes.
+
+    :param file_path: str, path to the file to read and modify in place.
+    :param dataframes: list of pd.DataFrame, new data to replace the kx, ky, kz rows in each slice.
+    """
+
+    with open(file_path, 'r') as file:
+        lines = file.readlines()
+
+    # Initialize variables
+    new_lines = []
+    dataframe_index = 0
+    inside_k_points = False
+
+    for line in lines:
+        if "Slice" in line:
+            inside_k_points = False
+            new_lines.append(line)
+        elif "Points" in line:
+            inside_k_points = False
+            new_lines.append(line)
+        elif "kx" in line:
+            # When encountering the kx, ky, kz header, enable k-points replacement
+            inside_k_points = True
+            new_lines.append(line)
+
+            # Add data from the corresponding DataFrame
+            if dataframe_index < len(dataframes):
+                df = dataframes[dataframe_index]
+                for _, row in df.iterrows():
+                    new_lines.append(f" {row[1]:.6E} {row[2]:.6E} {row[3]:.6E}\n")
+                dataframe_index += 1
+            else:
+                raise ValueError("Not enough DataFrames provided for the number of slices.")
+        elif inside_k_points and re.match(r"\s*-?\d+\.\d+E[+-]\d+\s+-?\d+\.\d+E[+-]\d+\s+-?\d+\.\d+E[+-]\d+", line):
+            continue
+        else:
+            new_lines.append(line)
+
+    # Write the modified content back to the same file
+    with open(file_path, 'w') as file:
+        file.writelines(new_lines)
+
 def shiftedColorMap(cmap, start=0, midpoint=0.5, stop=1.0, name="shiftedcmap"):
     """
     Function to offset the "center" of a colormap. Useful for
@@ -643,7 +688,7 @@ def organise_skeaf(band_index, args):
         except:
             pass
 
-def plot_skeaf():
+def plot_skeaf(band_index):
     """
     Convert SKEAF output to readable form
     for plotting
@@ -678,6 +723,39 @@ def plot_skeaf():
             orbits_list += [orbit_int]
         else:
             orbits_list += [orbit]
+
+    ##############################################################################
+    # Make sure all orbits lie in the first BZ
+
+    mod_orbits_list = []
+    for orbit in orbits_list:
+        o = orbit.to_numpy()[:,1:]/(2*np.pi)
+
+        # Change basis from conventional to reciprocal coordinates
+        o_basis_ch = np.array([np.linalg.inv(cell.T).dot(i).tolist() for i in o])
+
+        # Determine one point on a given orbit that will be used to find the shift in k-space
+        lowest_vector = min(o, key=lambda v: np.linalg.norm(v))
+        cv = check_voronoi(lowest_vector, cell[0,:], cell[1,:], cell[2,:])
+
+        # Shift in k-space so that point lies within the first BZ
+        o_basis_ch_inside = o_basis_ch
+        for i in range(len(o[:,0])):
+            if np.any(cv!=0):
+                o_basis_ch_inside[i,0] = o_basis_ch[i,0]-cv[0]
+                o_basis_ch_inside[i,1] = o_basis_ch[i,1]-cv[1]
+                o_basis_ch_inside[i,2] = o_basis_ch[i,2]-cv[2]
+
+        # Change basis back to conventional coordinates
+        o_inside = np.array([(cell.T.dot(i.T)).tolist() for i in o_basis_ch_inside])
+
+        orbit = orbit.to_numpy()
+        orbit[:,1:] = o_inside*(2*np.pi)
+        orbit =  pd.DataFrame(orbit)
+        mod_orbits_list += [orbit.iloc[:, 1:]]
+
+    ##############################################################################
+    modify_invau("results_orbitoutlines_invau.out", mod_orbits_list)
 
     return orbits_list
 
@@ -1188,7 +1266,7 @@ for file in files:
 
     if args.skeaf == True:
         run_skeaf(file, file.split(".")[-1], args)
-        orbits_list = plot_skeaf()
+        orbits_list = plot_skeaf(file.split(".")[-1])
 
     for iso in isos:
 
@@ -1339,34 +1417,6 @@ for file in files:
 
         if args.skeaf == True:
             for orbit in orbits_list:
-                ##############################################################################
-                # Make sure all orbits lie in the first BZ
-
-                o = orbit.to_numpy()[:,1:]/(2*np.pi)
-
-                # Change basis from conventional to reciprocal coordinates
-                o_basis_ch = np.array([np.linalg.inv(cell.T).dot(i).tolist() for i in o])
-
-                # Determine one point on a given orbit that will be used to find the shift in k-space
-                lowest_vector = min(o, key=lambda v: np.linalg.norm(v))
-                cv = check_voronoi(lowest_vector, cell[0,:], cell[1,:], cell[2,:])
-
-                # Shift in k-space so that point lies within the first BZ
-                o_basis_ch_inside = o_basis_ch
-                for i in range(len(o[:,0])):
-                    if np.any(cv!=0):
-                        o_basis_ch_inside[i,0] = o_basis_ch[i,0]-cv[0]
-                        o_basis_ch_inside[i,1] = o_basis_ch[i,1]-cv[1]
-                        o_basis_ch_inside[i,2] = o_basis_ch[i,2]-cv[2]
-
-                # Change basis back to conventional coordinates
-                o_inside = np.array([(cell.T.dot(i.T)).tolist() for i in o_basis_ch_inside])
-
-                orbit = orbit.to_numpy()
-                orbit[:,1:] = o_inside*(2*np.pi)
-                orbit =  pd.DataFrame(orbit)
-
-                ##############################################################################
 
                 orbit_line = pv.MultipleLines(
                     points=np.array(
