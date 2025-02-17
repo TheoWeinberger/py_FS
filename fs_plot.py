@@ -221,7 +221,6 @@ def read_bxsf(
         file_name
     )
 
-
     vec_1 = vec_1 * (dimensions[0] + 1) / dimensions[0]
     vec_2 = vec_2 * (dimensions[1] + 1) / dimensions[1]
     vec_3 = vec_3 * (dimensions[2] + 1) / dimensions[2]
@@ -243,16 +242,15 @@ def read_bxsf(
     eigen_vals = eigen_vals[1:-1]
     eigen_vals = [float(val) for val in eigen_vals]
 
+    eig_vals = np.reshape(eigen_vals, dimensions, order="C")
 
-    eig_vals = np.reshape(eigen_vals, dimensions, order='C')
-
-    '''    eig_vals = np.zeros(dimensions)
+    """    eig_vals = np.zeros(dimensions)
     for i in range(dimensions[0]):
         for j in range(dimensions[1]):
             for k in range(dimensions[2]):
                 eig_vals[i, j, k] = eigen_vals[
                     dimensions[2] * dimensions[1] * i + dimensions[2] * j + k
-                ]'''
+                ]"""
 
     eig_vals = np.tile(eig_vals, (2, 2, 2))
 
@@ -275,14 +273,14 @@ def read_bxsf(
         )
 
         x_vals_int, y_vals_int, z_vals_int = np.meshgrid(
-            x_vals_int, y_vals_int, z_vals_int, indexing='ij'
+            x_vals_int, y_vals_int, z_vals_int, indexing="ij"
         )
 
         out_grid_z, out_grid_y, out_grid_x = np.meshgrid(
             range(-dimensions_int[2] + scale, dimensions_int[2] - scale + 1),
             range(-dimensions_int[1] + scale, dimensions_int[1] - scale + 1),
             range(-dimensions_int[0] + scale, dimensions_int[0] - scale + 1),
-            indexing='ij'
+            indexing="ij",
         )
 
         out_grid_x = out_grid_x / scale
@@ -305,17 +303,17 @@ def read_bxsf(
             2 * dimensions_int[2] - 2 * scale + 1,
         )
 
-        out_data = out_data.swapaxes(2,0)
+        out_data = out_data.swapaxes(2, 0)
 
     else:
 
-        out_data = eig_vals.swapaxes(2,0)
+        out_data = eig_vals.swapaxes(2, 0)
         dimensions_int = dimensions
         out_grid_z, out_grid_y, out_grid_x = np.meshgrid(
             range(-dimensions_int[2] + 1, dimensions_int[2]),
             range(-dimensions_int[1] + 1, dimensions_int[1]),
             range(-dimensions_int[0] + 1, dimensions_int[0]),
-            indexing='ij'
+            indexing="ij",
         )
 
     x_vals = []
@@ -487,7 +485,7 @@ def run_skeaf(file, band_index, args):
 
     with open("config.in", "w") as f_out:
         f_out.write(str(file.split("/")[-1]) + "\n")
-        f_out.write(str(float(Ef)+args.shift_energy) + "\n")
+        f_out.write(str(float(Ef) + args.shift_energy) + "\n")
         f_out.write(str(args.skeaf_interpolate) + "\n")
         f_out.write(str(args.skeaf_theta) + "\n")
         f_out.write(str(args.skeaf_phi) + "\n")
@@ -507,7 +505,8 @@ def run_skeaf(file, band_index, args):
 
         try:
             os.rename(
-                f"./skeaf_out/results_orbitoutlines_invau.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}.out", "results_orbitoutlines_invau.out"
+                f"./skeaf_out/results_orbitoutlines_invau.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}.out",
+                "results_orbitoutlines_invau.out",
             )
         except:
 
@@ -519,13 +518,15 @@ def run_skeaf(file, band_index, args):
 
         try:
             os.rename(
-                f"./skeaf_out/results_orbitoutlines_invau.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}_se_{args.shift_energy}.out", "results_orbitoutlines_invau.out"
+                f"./skeaf_out/results_orbitoutlines_invau.{band_index}_theta_{args.skeaf_theta}_phi_{args.skeaf_phi}_se_{args.shift_energy}.out",
+                "results_orbitoutlines_invau.out",
             )
         except:
 
             popen = subprocess.Popen([r"skeaf", "-rdcfg", "-nodos"])
 
             popen.wait()
+
 
 def organise_skeaf(band_index, args):
     """
@@ -611,6 +612,7 @@ def organise_skeaf(band_index, args):
         except:
             pass
 
+
 def plot_skeaf(args):
     """
     Convert SKEAF output to readable form
@@ -635,15 +637,21 @@ def plot_skeaf(args):
         )
         orbit.loc[len(orbit.index)] = orbit.loc[0]
         if args.skeaf_line_interpolate != 1:
-            tck, u = splprep([orbit[1], orbit[2], orbit[3]], k=args.skeaf_line_order, s=args.skeaf_line_smoothness)
-            u = np.linspace(0,1, len(u)*args.skeaf_line_interpolate, endpoint=True)
+            tck, u = splprep(
+                [orbit[1], orbit[2], orbit[3]],
+                k=args.skeaf_line_order,
+                s=args.skeaf_line_smoothness,
+            )
+            u = np.linspace(
+                0, 1, len(u) * args.skeaf_line_interpolate, endpoint=True
+            )
             new_points = splev(u, tck)
             orbit_int = pd.DataFrame([])
             orbit_int[0] = np.zeros_like(new_points[0])
             orbit_int[1] = new_points[0]
             orbit_int[2] = new_points[1]
             orbit_int[3] = new_points[2]
-            orbits_list += [orbit_int]   
+            orbits_list += [orbit_int]
         else:
             orbits_list += [orbit]
 
@@ -1001,6 +1009,7 @@ def load_files(args):
             ]
     return files
 
+
 def main():
     # parse command line arguments
     parser = args_parser()
@@ -1053,7 +1062,6 @@ def main():
         )
         exit()
 
-
     # initialise 3D visualisation
     plotter = pv.Plotter(
         off_screen=True,
@@ -1074,7 +1082,6 @@ def main():
     # get cell for FS plot
     _, _, _, _, _, _, cell = read_bxsf_info(files[0])
 
-
     # generate BZ from voronoi analysis
     v, e, f = get_brillouin_zone_3d(cell)
 
@@ -1083,7 +1090,6 @@ def main():
     bz_surf = bz_surf.delaunay_3d()
     bz_surf = bz_surf.extract_surface()
     edges = bz_surf.extract_all_edges()
-
 
     # make output colorlist
     color_list = sns.color_palette("hls", 2 * len(files))
@@ -1252,7 +1258,9 @@ def main():
                             lighting=True,
                             color=color_list[2 * counter],
                             opacity=args.opacity,
-                            backface_params={"color": color_list[2 * counter + 1]},
+                            backface_params={
+                                "color": color_list[2 * counter + 1]
+                            },
                         )
 
             except:
@@ -1326,16 +1334,18 @@ def main():
 
             counter += 1
 
-
     # plot BZ
     for xx in e:
-        line = pv.MultipleLines(points=np.array([xx[:, 0], xx[:, 1], xx[:, 2]]).T)
+        line = pv.MultipleLines(
+            points=np.array([xx[:, 0], xx[:, 1], xx[:, 2]]).T
+        )
         plotter.add_mesh(
             line, color="black", line_width=args.resolution * args.line_width
         )
         if args.interactive == True:
-            plotter_int.add_mesh(line, color="black", line_width=args.line_width)
-
+            plotter_int.add_mesh(
+                line, color="black", line_width=args.line_width
+            )
 
     plotter.set_background("white")
     plotter.camera_position = "yz"
@@ -1391,6 +1401,7 @@ def main():
         print(f"\tAzimuthal angle: {azimuth_deg}")
         print(f"\tElevation: {elevation_deg}")
         print(f"\tZoom: {zoom}")
+
 
 if __name__ == "__main__":
     main()
