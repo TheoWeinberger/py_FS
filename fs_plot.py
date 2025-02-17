@@ -167,7 +167,7 @@ def main():
 
         if args.skeaf == True:
             run_skeaf(file, file.split(".")[-1], args)
-            orbits_list = plot_skeaf(args)
+            orbits_list = plot_skeaf(file.split(".")[-1], args, cell)
 
         for iso in isos:
 

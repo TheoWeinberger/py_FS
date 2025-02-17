@@ -289,6 +289,31 @@ def args_parser():
         help="Colour of SKEAF orbit plot",
         default="red",
     )
+    parser.add_argument(
+        "-clipx",
+        "--clip-in-x",
+        metavar="\b",
+        type=float,
+        help="Clip by given amount in the x-direction",
+        default=0,
+    )
+    parser.add_argument(
+        "-clipy",
+        "--clip-in-y",
+        metavar="\b",
+        type=float,
+        help="Clip by given amount in the y-direction",
+        default=0,
+    )
+    parser.add_argument(
+        "-clipz",
+        "--clip-in-z",
+        metavar="\b",
+        type=float,
+        help="Clip by given amount in the z-direction",
+        default=0,
+    )
+
 
     return parser
 
