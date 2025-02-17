@@ -30,7 +30,6 @@ import ast
 import pandas as pd
 
 
-
 def args_parser():
     """Function to take input command line arguments"""
     parser = argparse.ArgumentParser(
@@ -56,8 +55,6 @@ def args_parser():
     return parser
 
 
-
-
 def read_bxsf_info(file_name):
 
     # open and read file
@@ -69,7 +66,7 @@ def read_bxsf_info(file_name):
     """
     # get fermi energy
     for line in lines:
-        if "Fermi Energy" in line: 
+        if "Fermi Energy" in line:
             x = line.split(" ")
             x = [val for _, val in enumerate(x) if val != ""]
             x = [val for _, val in enumerate(x) if val != "\t"]
@@ -84,14 +81,14 @@ def read_bxsf_info(file_name):
     line_counter = 0
     for line in lines:
         if "BAND:" in line:
-            x = re.findall(r"\d+", lines[line_counter-5])
+            x = re.findall(r"\d+", lines[line_counter - 5])
             # convert dimensions to integer values
             dimensions = [int(dim) for dim in x]
             """
             Get basis vectors
             """
             # first spanning vector
-            vec1 = lines[line_counter-1].split(" ")
+            vec1 = lines[line_counter - 1].split(" ")
             vec1 = [val.strip("\n") for val in vec1]
             vec1 = [val.strip("\t") for val in vec1]
             vec1 = [val for _, val in enumerate(vec1) if val != ""]
@@ -99,7 +96,7 @@ def read_bxsf_info(file_name):
             vec1 = [float(val) for val in vec1]
 
             # second spanning vector
-            vec2 = lines[line_counter-2].split(" ")
+            vec2 = lines[line_counter - 2].split(" ")
             vec2 = [val.strip("\n") for val in vec2]
             vec2 = [val.strip("\t") for val in vec2]
             vec2 = [val for _, val in enumerate(vec2) if val != ""]
@@ -107,7 +104,7 @@ def read_bxsf_info(file_name):
             vec2 = [float(val) for val in vec2]
 
             # thrid spanning vector
-            vec3 = lines[line_counter-3].split(" ")
+            vec3 = lines[line_counter - 3].split(" ")
             vec3 = [val.strip("\n") for val in vec3]
             vec3 = [val.strip("\t") for val in vec3]
             vec3 = [val for _, val in enumerate(vec3) if val != ""]
@@ -115,16 +112,15 @@ def read_bxsf_info(file_name):
             vec3 = [float(val) for val in vec3]
 
             # shift
-            shift = lines[line_counter-4].split(" ")
+            shift = lines[line_counter - 4].split(" ")
             shift = [val.strip("\n") for val in shift]
             shift = [val.strip("\t") for val in shift]
             shift = [val for _, val in enumerate(shift) if val != ""]
             # convert dimensions to float values
             shift = [float(val) for val in shift]
 
-
             # n_bands
-            n_bands = lines[line_counter-6].split(" ")
+            n_bands = lines[line_counter - 6].split(" ")
             n_bands = [val.strip("\n") for val in n_bands]
             n_bands = [val.strip("\t") for val in n_bands]
             n_bands = [val for _, val in enumerate(n_bands) if val != ""]
@@ -162,21 +158,16 @@ def load_file(args):
 
     # load up bxsf files
     try:
-        file = glob.glob(
-            args.name + "*.bxsf"
-        )
+        file = glob.glob(args.name + "*.bxsf")
     except:
-        print(
-            f"Error: No matching bxsf found with name {args.name}"
-        )
+        print(f"Error: No matching bxsf found with name {args.name}")
         exit()
 
     if len(file) == 0:
-        print(
-            f"Error: No matching bxsf found with name {args.name}"
-        )
+        print(f"Error: No matching bxsf found with name {args.name}")
         exit()
     return file
+
 
 def get_energies_band(band, file):
     # open and read file
@@ -201,9 +192,7 @@ def get_energies_band(band, file):
         eigen_vals = eigen_vals[1:-1]
         eigen_vals = [float(val) for val in eigen_vals]
     else:
-        print(
-            f"Error: No matching band index found with index {band}"
-        )
+        print(f"Error: No matching band index found with index {band}")
         exit()
 
     f.close()
@@ -213,57 +202,54 @@ def get_energies_band(band, file):
 
 def gen_bxsf(args, eigen_vals, ef, band, shift, dimensions, vec1, vec2, vec3):
 
-   
-        f = open(args.name + ".bxsf.band-" + str(band), "w")
+    f = open(args.name + ".bxsf.band-" + str(band), "w")
 
-        """
+    """
         general .bxsf rubbish
         """
-        f.write(" BEGIN_INFO\n")
-        f.write("  Fermi Energy:     " + str(ef) + "\n")
-        f.write(" END_INFO\n")
-        f.write(" BEGIN_BLOCK_BANDGRID_3D\n")
-        f.write(" band_energies\n")
-        f.write(" BANDGRID_3D_BANDS\n")
-        f.write(" 1\n")
-        f.write(
-            " "
-            + str(dimensions[0])
-            + " "
-            + str(dimensions[1])
-            + " "
-            + str(dimensions[2])
-            + "\n"
-        )
+    f.write(" BEGIN_INFO\n")
+    f.write("  Fermi Energy:     " + str(ef) + "\n")
+    f.write(" END_INFO\n")
+    f.write(" BEGIN_BLOCK_BANDGRID_3D\n")
+    f.write(" band_energies\n")
+    f.write(" BANDGRID_3D_BANDS\n")
+    f.write(" 1\n")
+    f.write(
+        " "
+        + str(dimensions[0])
+        + " "
+        + str(dimensions[1])
+        + " "
+        + str(dimensions[2])
+        + "\n"
+    )
 
-        f.write(
-            f"\t {shift[0]:.6f}\t {shift[1]:.6f}\t {shift[2]:.6f}\n"       )
+    f.write(f"\t {shift[0]:.6f}\t {shift[1]:.6f}\t {shift[2]:.6f}\n")
 
-        vec_list = [vec1, vec2, vec3]                                     
+    vec_list = [vec1, vec2, vec3]
 
-        for vec in vec_list:
+    for vec in vec_list:
 
-            f.write(
-            f"\t {vec[0]:.6f}\t {vec[1]:.6f}\t {vec[2]:.6f}\n")
+        f.write(f"\t {vec[0]:.6f}\t {vec[1]:.6f}\t {vec[2]:.6f}\n")
 
-        f.write(" BAND:   " + str(band) + "\n")
+    f.write(" BAND:   " + str(band) + "\n")
 
-        counter = 0
-        for eig in eigen_vals:
-            f.write(f" {eig:.6f}")
-            if (counter + 1) % 6 == 0:
-                f.write("\n")
-            counter += 1
-
-        # last new line
+    counter = 0
+    for eig in eigen_vals:
+        f.write(f" {eig:.6f}")
         if (counter + 1) % 6 == 0:
-            pass
-        else:
             f.write("\n")
+        counter += 1
 
-        f.write(" END_BANDGRID_3D\n")
-        f.write(" END_BLOCK_BANDGRID_3D\n")
-        f.close()
+    # last new line
+    if (counter + 1) % 6 == 0:
+        pass
+    else:
+        f.write("\n")
+
+    f.write(" END_BANDGRID_3D\n")
+    f.write(" END_BLOCK_BANDGRID_3D\n")
+    f.close()
 
 
 def write_bxsf(args, file, vec1, vec2, vec3, dimensions, ef, shift, n_bands):
@@ -271,33 +257,46 @@ def write_bxsf(args, file, vec1, vec2, vec3, dimensions, ef, shift, n_bands):
     if args.bands is not None:
         for band in ast.literal_eval(args.bands):
             eig_vals = get_energies_band(str(band), file)
-            gen_bxsf(args, eig_vals, ef, band, shift, dimensions, vec1, vec2, vec3)
+            gen_bxsf(
+                args, eig_vals, ef, band, shift, dimensions, vec1, vec2, vec3
+            )
 
     else:
         closest_val = 10000
-        closest_ind = 1 
+        closest_ind = 1
         metal = False
         for i in range(n_bands):
-            eig_vals = get_energies_band(str(i+1), file)
+            eig_vals = get_energies_band(str(i + 1), file)
             if min(eig_vals) < ef and max(eig_vals) > ef:
-                gen_bxsf(args, eig_vals, ef, i+1, shift, dimensions, vec1, vec2, vec3)
+                gen_bxsf(
+                    args,
+                    eig_vals,
+                    ef,
+                    i + 1,
+                    shift,
+                    dimensions,
+                    vec1,
+                    vec2,
+                    vec3,
+                )
                 metal = True
             else:
-                closest_val_test = min(abs(min(eig_vals) - ef), abs(max(eig_vals) - ef))
+                closest_val_test = min(
+                    abs(min(eig_vals) - ef), abs(max(eig_vals) - ef)
+                )
                 if min(eig_vals) < ef:
                     sign = -1
                 else:
-                    sign = +1 
+                    sign = +1
                 if closest_val_test < abs(closest_val):
-                    closest_val = sign*closest_val_test
-                    closest_ind = i+1
+                    closest_val = sign * closest_val_test
+                    closest_ind = i + 1
         if metal == False:
             print(
                 f"No matching band crossing the Fermi level found\n"
                 f"The closest band is band index {closest_ind}, which is {closest_val} away from Ef in the units of your file"
             )
             exit()
-            
 
 
 def main():
@@ -308,5 +307,6 @@ def main():
     vec1, vec2, vec3, dimensions, ef, shift, n_bands = read_bxsf_info(file[0])
 
     write_bxsf(args, file[0], vec1, vec2, vec3, dimensions, ef, shift, n_bands)
+
 
 main()
