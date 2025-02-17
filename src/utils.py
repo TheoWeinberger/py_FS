@@ -6,6 +6,7 @@ from scipy.ndimage import map_coordinates
 import re
 import pyvista as pv
 
+
 def load_files(args):
     """Function to load in bxsf files taking arguments
     to determine whether we have a spin polarised case

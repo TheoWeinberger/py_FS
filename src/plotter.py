@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib as mpl
 from matplotlib import pyplot as plt
 
+
 def shiftedColorMap(cmap, start=0, midpoint=0.5, stop=1.0, name="shiftedcmap"):
     """
     Function to offset the "center" of a colormap. Useful for
@@ -86,4 +87,3 @@ class MidpointNormalize(mpl.colors.Normalize):
             normalized_max,
         ]
         return np.ma.masked_array(np.interp(value, x, y))
-    

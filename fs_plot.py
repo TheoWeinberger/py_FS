@@ -38,7 +38,6 @@ cp = sns.color_palette("Set2")
 # pv.rcParams['transparent_background'] = True
 
 
-
 def main():
     # parse command line arguments
     parser = args_parser()

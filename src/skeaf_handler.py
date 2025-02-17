@@ -30,14 +30,20 @@ def check_voronoi(P, a1, a2, a3, lattice_points_range=2):
             for p in range(-lattice_points_range, lattice_points_range + 1):
                 if m == 0 and n == 0 and p == 0:
                     continue  # Skip the origin itself
-                if np.linalg.norm(P - (m*a1+n*a2+p*a3))<np.linalg.norm(P):
-                    indices.append([m,n,p])
-    sorted_indices = sorted(indices, key=lambda x: np.linalg.norm(P - (x[0]*a1+x[1]*a2+x[2]*a3)))
+                if np.linalg.norm(
+                    P - (m * a1 + n * a2 + p * a3)
+                ) < np.linalg.norm(P):
+                    indices.append([m, n, p])
+    sorted_indices = sorted(
+        indices,
+        key=lambda x: np.linalg.norm(P - (x[0] * a1 + x[1] * a2 + x[2] * a3)),
+    )
 
-    if len(indices)>0:
+    if len(indices) > 0:
         return np.array(sorted_indices[0])
-    elif len(indices)==0:
+    elif len(indices) == 0:
         return np.array([0, 0, 0])
+
 
 def modify_invau(file_path, dataframes):
     """
@@ -47,7 +53,7 @@ def modify_invau(file_path, dataframes):
     :param dataframes: list of pd.DataFrame, new data to replace the kx, ky, kz rows in each slice.
     """
 
-    with open(file_path, 'r') as file:
+    with open(file_path, "r") as file:
         lines = file.readlines()
 
     # Initialize variables
@@ -71,17 +77,24 @@ def modify_invau(file_path, dataframes):
             if dataframe_index < len(dataframes):
                 df = dataframes[dataframe_index]
                 for _, row in df.iterrows():
-                    new_lines.append(f" {row[1]:.6E} {row[2]:.6E} {row[3]:.6E}\n")
+                    new_lines.append(
+                        f" {row[1]:.6E} {row[2]:.6E} {row[3]:.6E}\n"
+                    )
                 dataframe_index += 1
             else:
-                raise ValueError("Not enough DataFrames provided for the number of slices.")
-        elif inside_k_points and re.match(r"\s*-?\d+\.\d+E[+-]\d+\s+-?\d+\.\d+E[+-]\d+\s+-?\d+\.\d+E[+-]\d+", line):
+                raise ValueError(
+                    "Not enough DataFrames provided for the number of slices."
+                )
+        elif inside_k_points and re.match(
+            r"\s*-?\d+\.\d+E[+-]\d+\s+-?\d+\.\d+E[+-]\d+\s+-?\d+\.\d+E[+-]\d+",
+            line,
+        ):
             continue
         else:
             new_lines.append(line)
 
     # Write the modified content back to the same file
-    with open(file_path, 'w') as file:
+    with open(file_path, "w") as file:
         file.writelines(new_lines)
 
 
@@ -155,6 +168,7 @@ def run_skeaf(file, band_index, args):
             popen = subprocess.Popen([r"skeaf", "-rdcfg", "-nodos"])
 
             popen.wait()
+
 
 def organise_skeaf(band_index, args):
     """
@@ -240,6 +254,7 @@ def organise_skeaf(band_index, args):
         except:
             pass
 
+
 def plot_skeaf(band_index, args, cell):
     """
     Convert SKEAF output to readable form
@@ -264,8 +279,14 @@ def plot_skeaf(band_index, args, cell):
         )
         orbit.loc[len(orbit.index)] = orbit.loc[0]
         if args.skeaf_line_interpolate != 1:
-            tck, u = splprep([orbit[1], orbit[2], orbit[3]], k=args.skeaf_line_order, s=args.skeaf_line_smoothness)
-            u = np.linspace(0,1, len(u)*args.skeaf_line_interpolate, endpoint=True)
+            tck, u = splprep(
+                [orbit[1], orbit[2], orbit[3]],
+                k=args.skeaf_line_order,
+                s=args.skeaf_line_smoothness,
+            )
+            u = np.linspace(
+                0, 1, len(u) * args.skeaf_line_interpolate, endpoint=True
+            )
             new_points = splev(u, tck)
             orbit_int = pd.DataFrame([])
             orbit_int[0] = np.zeros_like(new_points[0])
@@ -281,29 +302,33 @@ def plot_skeaf(band_index, args, cell):
 
     mod_orbits_list = []
     for orbit in orbits_list:
-        o = orbit.to_numpy()[:,1:]/(2*np.pi)
+        o = orbit.to_numpy()[:, 1:] / (2 * np.pi)
 
         # Change basis from conventional to reciprocal coordinates
-        o_basis_ch = np.array([np.linalg.inv(cell.T).dot(i).tolist() for i in o])
+        o_basis_ch = np.array(
+            [np.linalg.inv(cell.T).dot(i).tolist() for i in o]
+        )
 
         # Determine one point on a given orbit that will be used to find the shift in k-space
         lowest_vector = min(o, key=lambda v: np.linalg.norm(v))
-        cv = check_voronoi(lowest_vector, cell[0,:], cell[1,:], cell[2,:])
+        cv = check_voronoi(lowest_vector, cell[0, :], cell[1, :], cell[2, :])
 
         # Shift in k-space so that point lies within the first BZ
         o_basis_ch_inside = o_basis_ch
-        for i in range(len(o[:,0])):
-            if np.any(cv!=0):
-                o_basis_ch_inside[i,0] = o_basis_ch[i,0]-cv[0]
-                o_basis_ch_inside[i,1] = o_basis_ch[i,1]-cv[1]
-                o_basis_ch_inside[i,2] = o_basis_ch[i,2]-cv[2]
+        for i in range(len(o[:, 0])):
+            if np.any(cv != 0):
+                o_basis_ch_inside[i, 0] = o_basis_ch[i, 0] - cv[0]
+                o_basis_ch_inside[i, 1] = o_basis_ch[i, 1] - cv[1]
+                o_basis_ch_inside[i, 2] = o_basis_ch[i, 2] - cv[2]
 
         # Change basis back to conventional coordinates
-        o_inside = np.array([(cell.T.dot(i.T)).tolist() for i in o_basis_ch_inside])
+        o_inside = np.array(
+            [(cell.T.dot(i.T)).tolist() for i in o_basis_ch_inside]
+        )
 
         orbit = orbit.to_numpy()
-        orbit[:,1:] = o_inside*(2*np.pi)
-        orbit =  pd.DataFrame(orbit)
+        orbit[:, 1:] = o_inside * (2 * np.pi)
+        orbit = pd.DataFrame(orbit)
         mod_orbits_list += [orbit.iloc[:, 1:]]
 
     ##############################################################################
