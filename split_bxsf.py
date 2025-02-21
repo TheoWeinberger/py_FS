@@ -235,6 +235,7 @@ def gen_bxsf(args, eigen_vals, ef, band, shift, dimensions, vec1, vec2, vec3):
     f.write(" BAND:   " + str(band) + "\n")
 
     counter = 0
+    eigen_vals.reverse()
     for eig in eigen_vals:
         f.write(f" {eig:.6f}")
         if (counter + 1) % 6 == 0:
