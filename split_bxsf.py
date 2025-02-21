@@ -18,7 +18,6 @@ Splits bxsf files consisting of all bands to
 produce bxsf files plottable by fs_plot.py
 """
 
-
 import numpy as np
 import re
 import glob
@@ -30,8 +29,13 @@ import ast
 import pandas as pd
 
 
-def args_parser():
-    """Function to take input command line arguments"""
+def args_parser() -> argparse.ArgumentParser:
+    """
+    Function to take input command line arguments
+
+    Returns:
+        argparse.ArgumentParser: Argument parser for the Fermi Surface Plotter
+    """
     parser = argparse.ArgumentParser(
         description="Fermi Surface Plotter",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -55,8 +59,16 @@ def args_parser():
     return parser
 
 
-def read_bxsf_info(file_name):
+def read_bxsf_info(file_name: str) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[int], float, list[float], int]:
+    """
+    Reads the bxsf file and extracts information such as Fermi energy, dimensions, and basis vectors
 
+    Args:
+        file_name (str): Name of the bxsf file
+
+    Returns:
+        tuple: Contains basis vectors, dimensions, Fermi energy, shift, and number of bands
+    """
     # open and read file
     f = open(file_name, "r")
     lines = f.readlines()
@@ -143,19 +155,17 @@ def read_bxsf_info(file_name):
     return vec1, vec2, vec3, dimensions, ef, shift, n_bands
 
 
-def load_file(args):
-    """Function to load in bxsf files taking arguments
+def load_file(args: argparse.Namespace) -> list[str]:
+    """
+    Function to load in bxsf files taking arguments
     to determine whether we have a spin polarised case
 
     Args:
-
-        args: command line arguments
+        args (argparse.Namespace): Command line arguments
 
     Returns:
-
-        file: bxsf file to be split
+        list[str]: List of bxsf files to be split
     """
-
     # load up bxsf files
     try:
         file = glob.glob(args.name + "*.bxsf")
@@ -169,7 +179,17 @@ def load_file(args):
     return file
 
 
-def get_energies_band(band, file):
+def get_energies_band(band: str, file: str) -> list[float]:
+    """
+    Extracts the eigenvalues for a specific band from the bxsf file
+
+    Args:
+        band (str): Band index
+        file (str): Name of the bxsf file
+
+    Returns:
+        list[float]: List of eigenvalues for the specified band
+    """
     # open and read file
     f = open(file, "r")
     lines = f.readlines()
@@ -200,8 +220,21 @@ def get_energies_band(band, file):
     return eigen_vals
 
 
-def gen_bxsf(args, eigen_vals, ef, band, shift, dimensions, vec1, vec2, vec3):
+def gen_bxsf(args: argparse.Namespace, eigen_vals: list[float], ef: float, band: int, shift: list[float], dimensions: list[int], vec1: np.ndarray, vec2: np.ndarray, vec3: np.ndarray) -> None:
+    """
+    Generates a bxsf file for a specific band
 
+    Args:
+        args (argparse.Namespace): Command line arguments
+        eigen_vals (list[float]): List of eigenvalues for the specified band
+        ef (float): Fermi energy
+        band (int): Band index
+        shift (list[float]): Shift values
+        dimensions (list[int]): Dimensions of the k mesh
+        vec1 (np.ndarray): First spanning vector
+        vec2 (np.ndarray): Second spanning vector
+        vec3 (np.ndarray): Third spanning vector
+    """
     f = open(args.name + ".bxsf.band-" + str(band), "w")
 
     """
@@ -253,8 +286,21 @@ def gen_bxsf(args, eigen_vals, ef, band, shift, dimensions, vec1, vec2, vec3):
     f.close()
 
 
-def write_bxsf(args, file, vec1, vec2, vec3, dimensions, ef, shift, n_bands):
+def write_bxsf(args: argparse.Namespace, file: str, vec1: np.ndarray, vec2: np.ndarray, vec3: np.ndarray, dimensions: list[int], ef: float, shift: list[float], n_bands: int) -> None:
+    """
+    Writes the bxsf files for the specified bands or bands crossing the Fermi level
 
+    Args:
+        args (argparse.Namespace): Command line arguments
+        file (str): Name of the bxsf file
+        vec1 (np.ndarray): First spanning vector
+        vec2 (np.ndarray): Second spanning vector
+        vec3 (np.ndarray): Third spanning vector
+        dimensions (list[int]): Dimensions of the k mesh
+        ef (float): Fermi energy
+        shift (list[float]): Shift values
+        n_bands (int): Number of bands
+    """
     if args.bands is not None:
         for band in ast.literal_eval(args.bands):
             eig_vals = get_energies_band(str(band), file)
@@ -300,7 +346,10 @@ def write_bxsf(args, file, vec1, vec2, vec3, dimensions, ef, shift, n_bands):
             exit()
 
 
-def main():
+def main() -> None:
+    """
+    Main function to parse arguments and process the bxsf file
+    """
     parser = args_parser()
     args = parser.parse_args()
 
