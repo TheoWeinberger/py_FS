@@ -4,7 +4,7 @@ import subprocess
 import pandas as pd
 from scipy.interpolate import splprep, splev
 import numpy as np
-import io
+import argparse
 
 
 def check_voronoi(P: np.ndarray, a1: np.ndarray, a2: np.ndarray, a3: np.ndarray, lattice_points_range: int = 2) -> np.ndarray:
