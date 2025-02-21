@@ -1,8 +1,13 @@
 import argparse
 
 
-def args_parser():
-    """Function to take input command line arguments"""
+def args_parser() -> argparse.ArgumentParser:
+    """
+    Function to take input command line arguments
+
+    Returns:
+        argparse.ArgumentParser: Argument parser for the Fermi Surface Plotter
+    """
     parser = argparse.ArgumentParser(
         description="Fermi Surface Plotter",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -109,7 +114,7 @@ def args_parser():
         "--resolution",
         metavar="\b",
         type=float,
-        help="Resoltuion of saved pdf image",
+        help="Resolution of saved pdf image",
         default=1.0,
     )
     parser.add_argument(

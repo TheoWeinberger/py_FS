@@ -7,17 +7,15 @@ import re
 import pyvista as pv
 
 
-def load_files(args):
-    """Function to load in bxsf files taking arguments
-    to determine whether we have a spin polarised case
+def load_files(args: argparse.Namespace) -> list[str]:
+    """
+    Function to load in bxsf files taking arguments to determine whether we have a spin polarised case
 
     Args:
-
-        args: command line arguments
+        args (argparse.Namespace): Command line arguments
 
     Returns:
-
-        files: list of files in be included in plots
+        list[str]: List of files to be included in plots
     """
 
     # load up bxsf files
@@ -66,7 +64,16 @@ def load_files(args):
     return files
 
 
-def read_bxsf_info(file_name):
+def read_bxsf_info(file_name: str) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[int], str, float, np.ndarray]:
+    """
+    Reads the bxsf file and extracts information such as Fermi energy, dimensions, and basis vectors
+
+    Args:
+        file_name (str): Path to the bxsf file
+
+    Returns:
+        tuple: Contains basis vectors, dimensions, band index, Fermi energy, and cell matrix
+    """
 
     # open and read file
     f = open(file_name, "r")
@@ -134,18 +141,20 @@ def read_bxsf_info(file_name):
     return vec_1, vec_2, vec_3, dimensions, band_index, e_f, cell
 
 
-def read_bxsf(
-    file_name, scale, order, shift_energy, fermi_velocity, scalar="None"
-):
+def read_bxsf(file_name: str, scale: int, order: int, shift_energy: float, fermi_velocity: bool, scalar: str = "None") -> tuple[np.ndarray, np.ndarray, float, np.ndarray, list[int], list[pv.PolyData], pv.StructuredGrid]:
     """
-    Reads .bxsf file and determines two
-    matrices, one corresponding to the eigenvalues
-    and the other the k space vectors
+    Reads .bxsf file and determines two matrices, one corresponding to the eigenvalues and the other the k space vectors
 
-    returns:
-        k_vectors
-        eigenvalues
-        ef
+    Args:
+        file_name (str): Path to the bxsf file
+        scale (int): Scaling factor for interpolation
+        order (int): Order of interpolation
+        shift_energy (float): Shift in the Fermi energy
+        fermi_velocity (bool): Whether to compute the Fermi velocity on the surface
+        scalar (str, optional): Name of file containing a scalar field to plot on the Fermi surface. Defaults to "None".
+
+    Returns:
+        tuple: Contains k_vectors, eigenvalues, Fermi energy, cell matrix, dimensions, isosurfaces, and grid
     """
     # open and read file
     f = open(file_name, "r")
@@ -354,20 +363,15 @@ def read_bxsf(
     return k_vectors, eig_vals, e_f, cell, dimensions, isos, grid
 
 
-def get_brillouin_zone_3d(cell):
+def get_brillouin_zone_3d(cell: np.ndarray) -> tuple[np.ndarray, list[np.ndarray], list[np.ndarray]]:
     """
-    Uses the k-space vectors and voronoi analysis to define
-    the BZ of the system
+    Uses the k-space vectors and Voronoi analysis to define the BZ of the system
 
     Args:
-        cell: a 3x3 matrix defining the basis vectors in
-        reciprocal space
+        cell (np.ndarray): A 3x3 matrix defining the basis vectors in reciprocal space
 
     Returns:
-        vor.vertices[bz_vertices]: vertices of BZ
-        bz_ridges: edges of the BZ
-        bz_facets: BZ facets
-
+        tuple: Contains vertices of BZ, edges of the BZ, and BZ facets
     """
 
     px, py, pz = np.tensordot(cell, np.mgrid[-1:2, -1:2, -1:2], axes=[0, 0])

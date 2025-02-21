@@ -7,20 +7,19 @@ import numpy as np
 import io
 
 
-def check_voronoi(P, a1, a2, a3, lattice_points_range=2):
+def check_voronoi(P: np.ndarray, a1: np.ndarray, a2: np.ndarray, a3: np.ndarray, lattice_points_range: int = 2) -> np.ndarray:
     """
-    Checks if the point P lies within the Voronoi tile centered at the origin,
-    spanned by the lattice vectors a1, a2, and a3 in 3D space.
+    Checks if the point P lies within the Voronoi tile centered at the origin, spanned by the lattice vectors a1, a2, and a3 in 3D space.
 
-    Parameters:
-    P (np.array): The point to check (3D vector).
-    a1 (np.array): The first lattice vector (3D vector).
-    a2 (np.array): The second lattice vector (3D vector).
-    a3 (np.array): The third lattice vector (3D vector).
-    lattice_points_range (int): The range of (m, n, p) values to check lattice points.
+    Args:
+        P (np.ndarray): The point to check (3D vector).
+        a1 (np.ndarray): The first lattice vector (3D vector).
+        a2 (np.ndarray): The second lattice vector (3D vector).
+        a3 (np.ndarray): The third lattice vector (3D vector).
+        lattice_points_range (int): The range of (m, n, p) values to check lattice points.
 
     Returns:
-    bool: True if the point lies inside the Voronoi tile, False otherwise.
+        np.ndarray: Indices of the closest lattice point.
     """
 
     # Check distances to all lattice points (m * a1 + n * a2 + p * a3)
@@ -45,12 +44,13 @@ def check_voronoi(P, a1, a2, a3, lattice_points_range=2):
         return np.array([0, 0, 0])
 
 
-def modify_invau(file_path, dataframes):
+def modify_invau(file_path: str, dataframes: list[pd.DataFrame]) -> None:
     """
     Replaces numerical values below the kx, ky, kz row in a file with corresponding values from the provided dataframes.
 
-    :param file_path: str, path to the file to read and modify in place.
-    :param dataframes: list of pd.DataFrame, new data to replace the kx, ky, kz rows in each slice.
+    Args:
+        file_path (str): Path to the file to read and modify in place.
+        dataframes (list[pd.DataFrame]): New data to replace the kx, ky, kz rows in each slice.
     """
 
     with open(file_path, "r") as file:
@@ -98,15 +98,14 @@ def modify_invau(file_path, dataframes):
         file.writelines(new_lines)
 
 
-def run_skeaf(file, band_index, args):
+def run_skeaf(file: str, band_index: int, args: argparse.Namespace) -> None:
     """
-    Run skeaf on the current bxsf file to determine the orbital
-    path for plotting
+    Run skeaf on the current bxsf file to determine the orbital path for plotting
 
     Args:
-        file: current file to run SKEAF on
-        band_index: current band index being viewed
-        args: cmd line parsed args
+        file (str): Current file to run SKEAF on
+        band_index (int): Current band index being viewed
+        args (argparse.Namespace): Command line parsed arguments
     """
 
     try:
@@ -170,13 +169,13 @@ def run_skeaf(file, band_index, args):
             popen.wait()
 
 
-def organise_skeaf(band_index, args):
+def organise_skeaf(band_index: int, args: argparse.Namespace) -> None:
     """
     Move SKEAF output files into dedicated folder
 
     Args:
-        band-index: current band index being viewed
-        args: cmd line parsed args
+        band_index (int): Current band index being viewed
+        args (argparse.Namespace): Command line parsed arguments
     """
 
     if args.shift_energy == 0.0:
@@ -255,13 +254,17 @@ def organise_skeaf(band_index, args):
             pass
 
 
-def plot_skeaf(band_index, args, cell):
+def plot_skeaf(band_index: int, args: argparse.Namespace, cell: np.ndarray) -> list[pd.DataFrame]:
     """
-    Convert SKEAF output to readable form
-    for plotting
+    Convert SKEAF output to readable form for plotting
+
+    Args:
+        band_index (int): Current band index being viewed
+        args (argparse.Namespace): Command line parsed arguments
+        cell (np.ndarray): Cell matrix
 
     Returns:
-        orbits_list: list of dataframes containing orbital information
+        list[pd.DataFrame]: List of dataframes containing orbital information
     """
 
     orbits_file = open("results_orbitoutlines_invau.out").read()

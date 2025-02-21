@@ -3,27 +3,19 @@ import matplotlib as mpl
 from matplotlib import pyplot as plt
 
 
-def shiftedColorMap(cmap, start=0, midpoint=0.5, stop=1.0, name="shiftedcmap"):
+def shiftedColorMap(cmap: mpl.colors.Colormap, start: float = 0, midpoint: float = 0.5, stop: float = 1.0, name: str = "shiftedcmap") -> mpl.colors.Colormap:
     """
-    Function to offset the "center" of a colormap. Useful for
-    data with a negative min and positive max and you want the
-    middle of the colormap's dynamic range to be at zero.
+    Function to offset the "center" of a colormap. Useful for data with a negative min and positive max and you want the middle of the colormap's dynamic range to be at zero.
 
-    Input
-    -----
-      cmap : The matplotlib colormap to be altered
-      start : Offset from lowest point in the colormap's range.
-          Defaults to 0.0 (no lower offset). Should be between
-          0.0 and `midpoint`.
-      midpoint : The new center of the colormap. Defaults to
-          0.5 (no shift). Should be between 0.0 and 1.0. In
-          general, this should be  1 - vmax / (vmax + abs(vmin))
-          For example if your data range from -15.0 to +5.0 and
-          you want the center of the colormap at 0.0, `midpoint`
-          should be set to  1 - 5/(5 + 15)) or 0.75
-      stop : Offset from highest point in the colormap's range.
-          Defaults to 1.0 (no upper offset). Should be between
-          `midpoint` and 1.0.
+    Args:
+        cmap (mpl.colors.Colormap): The matplotlib colormap to be altered
+        start (float, optional): Offset from lowest point in the colormap's range. Defaults to 0.0.
+        midpoint (float, optional): The new center of the colormap. Defaults to 0.5.
+        stop (float, optional): Offset from highest point in the colormap's range. Defaults to 1.0.
+        name (str, optional): Name of the new colormap. Defaults to "shiftedcmap".
+
+    Returns:
+        mpl.colors.Colormap: The shifted colormap
     """
     cdict = {"red": [], "green": [], "blue": [], "alpha": []}
 
@@ -53,11 +45,30 @@ def shiftedColorMap(cmap, start=0, midpoint=0.5, stop=1.0, name="shiftedcmap"):
 
 
 class MidpointNormalize(mpl.colors.Normalize):
-    def __init__(self, vmin, vmax, midpoint=0, clip=False):
+    def __init__(self, vmin: float, vmax: float, midpoint: float = 0, clip: bool = False):
+        """
+        Normalize a given value to the 0-1 range at a midpoint
+
+        Args:
+            vmin (float): Minimum data value
+            vmax (float): Maximum data value
+            midpoint (float, optional): Midpoint for normalization. Defaults to 0.
+            clip (bool, optional): Whether to clip values outside the range. Defaults to False.
+        """
         self.midpoint = midpoint
         mpl.colors.Normalize.__init__(self, vmin, vmax, clip)
 
-    def __call__(self, value, clip=None):
+    def __call__(self, value: np.ndarray, clip: bool = None) -> np.ma.masked_array:
+        """
+        Normalize the value
+
+        Args:
+            value (np.ndarray): Data value to normalize
+            clip (bool, optional): Whether to clip values outside the range. Defaults to None.
+
+        Returns:
+            np.ma.masked_array: Normalized data value
+        """
         normalized_min = max(
             0,
             1
