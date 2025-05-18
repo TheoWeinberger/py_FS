@@ -124,7 +124,7 @@ def args_parser_breakdown() -> argparse.ArgumentParser:
         metavar="\b",
         type=float,
         help="Opacity of Fermi surface plot",
-        default=0.4,
+        default=0.2,
     )
     parser.add_argument(
         "-r",
@@ -156,7 +156,7 @@ def args_parser_breakdown() -> argparse.ArgumentParser:
         metavar="\b",
         type=str,
         help="Width of loop lines",
-        default=6.0,
+        default=8.0,
     )
     parser.add_argument(
         "-cc",
@@ -172,7 +172,7 @@ def args_parser_breakdown() -> argparse.ArgumentParser:
         metavar="\b",
         type=str,
         help="Width of connect lines",
-        default=3.0,
+        default=5.0,
     )
     parser.add_argument(
         "-nc",
