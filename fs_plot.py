@@ -48,6 +48,7 @@ def main():
     order = args.order
     opacity = args.opacity
     formt = args.format
+    shift_energy = args.shift_energy
 
     # get the projection
     projection = args.projection
@@ -68,7 +69,7 @@ def main():
         exit()
 
     if order < 1 or order > 5:
-        print("Error: Please choose a interpolation order between 1 aned 5")
+        print("Error: Please choose a interpolation order between 1 and 5")
         exit()
 
     if opacity > 1 or opacity < 0:
@@ -86,6 +87,16 @@ def main():
     if args.scalar != "None" and args.fermi_velocity is True:
         print(
             "Error: Cannot plot both the Fermi velocity and a scalar field on the Fermi surface"
+        )
+        exit()
+    if args.shift_energy_pair != 0.0 and len(files) != 2:
+        print(
+            "Error: Cannot use the shift energy pair option with more than two bands. Please use the shift energy option instead."
+        )
+        exit()
+    if args.shift_energy_pair != 0.0 and args.shift_energy != 0.0:
+        print(
+            "Error: Cannot use both the shift energy and the shift energy pair option. Please choose one."
         )
         exit()
 
@@ -131,16 +142,26 @@ def main():
             shift_energy=0,
             fermi_velocity=False,
         )
+    
+    if args.shift_energy_pair != 0.0:
+        shift_energy_list = calculate_shift(files, scale, order, args.shift_energy_pair, bz_surf)
+        print(f"Shift energy for first band: {shift_energy_list[0]}")
+        print(f"Shift energy for second band: {shift_energy_list[1]}")
+
 
     for file in files:
 
         print(file)
+        if shift_energy_list is not None:
+            shift_energy = shift_energy_list[counter]
+        else:
+            shift_energy = args.shift_energy
 
         k_vectors, eig_vals, e_f, cell, dimensions, isos, _ = read_bxsf(
             file,
             scale,
             order=order,
-            shift_energy=args.shift_energy,
+            shift_energy=shift_energy,
             fermi_velocity=args.fermi_velocity,
             scalar=args.scalar,
         )
@@ -172,7 +193,7 @@ def main():
             try:
 
                 if args.no_clip == False:
-
+                    
                     iso = iso.clip_surface(bz_surf, invert=True)
 
                 if args.fermi_velocity == True:
@@ -290,7 +311,8 @@ def main():
                             },
                         )
 
-            except:
+            except Exception as err: 
+                print(err)
                 # print(file + " contains an empty mesh")
                 pass
 
@@ -427,7 +449,7 @@ def main():
         print("\nFinal Camera coordinates were:")
         print(f"\tAzimuthal angle: {azimuth_deg}")
         print(f"\tElevation: {elevation_deg}")
-        print(f"\tZoom: {zoom}")
+        print(f"\tZo0.00023908157113949758om: {zoom}")
 
 
 if __name__ == "__main__":

@@ -53,6 +53,14 @@ def args_parser() -> argparse.ArgumentParser:
         default=0.0,
     )
     parser.add_argument(
+        "-sep",
+        "--shift-energy-pair",
+        metavar="\b",
+        type=float,
+        help="Shift in the Fermi energy from the DFT/input value for a pair of bands. The first band will be shifted by this value, the second band will be shifted to conserve carrier count",
+        default=0.0,
+    )
+    parser.add_argument(
         "-a",
         "--azimuth",
         metavar="\b",

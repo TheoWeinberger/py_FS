@@ -141,28 +141,25 @@ def read_bxsf_info(file_name: str) -> tuple[np.ndarray, np.ndarray, np.ndarray, 
     return vec_1, vec_2, vec_3, dimensions, band_index, e_f, cell
 
 
-def read_bxsf(file_name: str, scale: int, order: int, shift_energy: float, fermi_velocity: bool, scalar: str = "None") -> tuple[np.ndarray, np.ndarray, float, np.ndarray, list[int], list[pv.PolyData], pv.StructuredGrid]:
+def generate_energy_grid(file_name: str, scale: int, order: int, lines) -> tuple[pv.StructuredGrid, float, list[int], np.ndarray, np.ndarray]:
     """
-    Reads .bxsf file and determines two matrices, one corresponding to the eigenvalues and the other the k space vectors
+    Reads the bxsf file and generates a structured grid for the energy values
+    This function is used to create a grid for the energy values in the bxsf file.
+    It extracts the basis vectors, dimensions, and Fermi energy from the file,
+    and then creates a structured grid with the energy values interpolated based on the scale and order
+    of interpolation.
 
     Args:
         file_name (str): Path to the bxsf file
         scale (int): Scaling factor for interpolation
         order (int): Order of interpolation
-        shift_energy (float): Shift in the Fermi energy
-        fermi_velocity (bool): Whether to compute the Fermi velocity on the surface
-        scalar (str, optional): Name of file containing a scalar field to plot on the Fermi surface. Defaults to "None".
+        lines (list[str]): Lines from the bxsf file
 
     Returns:
-        tuple: Contains k_vectors, eigenvalues, Fermi energy, cell matrix, dimensions, isosurfaces, and grid
+        tuple: Contains the structured grid, Fermi energy, dimensions, k vectors, and eigenvalues
     """
-    # open and read file
-    f = open(file_name, "r")
-    lines = f.readlines()
 
-    """
-    Get general bxsf information
-    """
+
     vec_1, vec_2, vec_3, dimensions, band_index, e_f, cell = read_bxsf_info(
         file_name
     )
@@ -312,7 +309,31 @@ def read_bxsf(file_name: str, scale: int, order: int, shift_energy: float, fermi
     # (for this simple example we could've used an unstructured grid too)
     # note the fortran-order call to ravel()!
     # grid = pv.StructuredGrid(X, Y, Z)
-    grid.point_data["values"] = out_data.flatten()  # also the active scalars
+    grid.point_data["values"] = out_data.flatten()  # also the active scalar
+
+    return grid, e_f, dimensions_int, k_vectors, eig_vals, cell
+
+
+def read_bxsf(file_name: str, scale: int, order: int, shift_energy: float, fermi_velocity: bool, scalar: str = "None") -> tuple[np.ndarray, np.ndarray, float, np.ndarray, list[int], list[pv.PolyData], pv.StructuredGrid]:
+    """
+    Reads .bxsf file and determines two matrices, one corresponding to the eigenvalues and the other the k space vectors
+
+    Args:
+        file_name (str): Path to the bxsf file
+        scale (int): Scaling factor for interpolation
+        order (int): Order of interpolation
+        shift_energy (float): Shift in the Fermi energy
+        fermi_velocity (bool): Whether to compute the Fermi velocity on the surface
+        scalar (str, optional): Name of file containing a scalar field to plot on the Fermi surface. Defaults to "None".
+
+    Returns:
+        tuple: Contains k_vectors, eigenvalues, Fermi energy, cell matrix, dimensions, isosurfaces, and grid
+    """
+    # open and read file
+    f = open(file_name, "r")
+    lines = f.readlines()
+
+    grid, e_f, dimensions_int, k_vectors, eig_vals, cell = generate_energy_grid(file_name, scale, order, lines)
 
     if scalar != "None":
         scalar_files = glob.glob(scalar + "*bxsf*")
@@ -352,7 +373,6 @@ def read_bxsf(file_name: str, scale: int, order: int, shift_energy: float, fermi
             pass
 
     isos = [iso1]
-
     # or: mesh.contour(isosurfaces=np.linspace(10, 40, 3)) etc.
 
     dimensions = dimensions_int
@@ -361,6 +381,111 @@ def read_bxsf(file_name: str, scale: int, order: int, shift_energy: float, fermi
     f.close()
 
     return k_vectors, eig_vals, e_f, cell, dimensions, isos, grid
+
+def calculate_shift(file_names: list, scale: int, order: int, shift_energy: float, bz_surf: pv.StructuredGrid) -> tuple[np.float, np.float]:
+    """
+    Compute the energy shift for the second band so that the sum of enclosed
+    volumes from two isosurfaces remains constant after shifting the first band.
+
+    Args:
+        file_names (list): [path_band1_bxsf, path_band2_bxsf]
+        scale (int): Scaling factor for interpolation
+        order (int): Order of interpolation
+        shift_energy (float): Shift applied to band 1's Fermi level (in same units as e_f)
+        bz_surf (pv.StructuredGrid): Brillouin zone surface for clipping
+
+    Returns:
+        tuple[np.float, np.float]:
+            (delta2, carrier_vol)
+            where delta2 is the required shift for band 2, and carrier_vol
+            is the original total enclosed volume (vol1_orig + vol2_orig).
+    """
+    # ---------- Band 1: original & shifted volumes ----------
+    # open and read file
+    file_name = file_names[0]
+    with open(file_name, "r") as f:
+        lines1 = f.readlines()
+
+    grid1, e_f1, dimensions_int1, k_vectors1, eig_vals1, cell1 = generate_energy_grid(file_name, scale, order, lines1)
+
+    vol1_orig  = make_isovolume(grid1, e_f1,               scalars="values").clip_surface(bz_surf, invert=True).volume
+    vol1_shift = make_isovolume(grid1, e_f1 + shift_energy, scalars="values").clip_surface(bz_surf, invert=True).volume
+
+    # ---------- Band 2: original volume (grid reused for solver) ----------
+    file_name = file_names[1]
+    with open(file_name, "r") as f:
+        lines2 = f.readlines()
+
+    grid2, e_f2, dimensions_int2, k_vectors2, eig_vals2, cell2 = generate_energy_grid(file_name, scale, order, lines2)
+
+    def vol2_at(delta2: float) -> float:
+        return make_isovolume(grid2, e_f2 + delta2, scalars="values").clip_surface(bz_surf, invert=True).volume
+
+    vol2_orig = vol2_at(0.0)
+
+    # ---------- Target total & root function ----------
+    carrier_vol = vol1_orig + vol2_orig
+    target_v2   = carrier_vol - vol1_shift  # we want vol2(e_f2 + delta2) == target_v2
+
+    def g(delta2: float) -> float:
+        return vol2_at(delta2) - target_v2
+
+    # ---------- Warm-start via local linearization (small central difference) ----------
+    # This is just to pick a good initial bracket; final answer uses robust bisection.
+    def dV2dE(h: float = 1e-3) -> float:
+        vm = vol2_at(-h)
+        vp = vol2_at(+h)
+        return (vp - vm) / (2.0 * h)
+
+    try:
+        dV = dV2dE()
+        # If derivative is tiny, fall back to a neutral guess
+        delta2_guess = 0.0 if abs(dV) < 1e-16 else (target_v2 - vol2_orig) / dV
+    except Exception:
+        delta2_guess = 0.0
+
+    # ---------- Bracket expansion around the guess ----------
+    a = delta2_guess - 0.01
+    b = delta2_guess + 0.01
+    fa = g(a)
+    fb = g(b)
+
+    expand_count = 0
+    max_expand = 14  # expands bracket size up to ~16384x if needed
+    while fa * fb > 0 and expand_count < max_expand:
+        # Exponentially widen the bracket, centered on the guess
+        width = (b - a) * 2.0
+        a = delta2_guess - width
+        b = delta2_guess + width
+        fa = g(a)
+        fb = g(b)
+        expand_count += 1
+
+    if fa * fb > 0:
+        raise RuntimeError(
+            "Could not bracket a solution for delta2. "
+            "Try widening the energy range or inspecting V2(E) monotonicity."
+        )
+
+    # ---------- Bisection solve ----------
+    tol = 1e-8  # energy tolerance (adjust to your preferred precision)
+    max_it = 200
+    for _ in range(max_it):
+        m = 0.5 * (a + b)
+        fm = g(m)
+        if abs(fm) < 1e-10 or 0.5 * (b - a) < tol:
+            delta2 = m
+            break
+        if fa * fm <= 0:
+            b, fb = m, fm
+        else:
+            a, fa = m, fm
+    else:
+        delta2 = 0.5 * (a + b)
+
+    vol2_shift = make_isovolume(grid2, e_f2 + delta2, scalars="values").clip_surface(bz_surf, invert=True).volume
+
+    return shift_energy, delta2
 
 
 def get_brillouin_zone_3d(cell: np.ndarray) -> tuple[np.ndarray, list[np.ndarray], list[np.ndarray]]:
@@ -393,3 +518,24 @@ def get_brillouin_zone_3d(cell: np.ndarray) -> tuple[np.ndarray, list[np.ndarray
     bz_vertices = list(set(bz_vertices))
 
     return vor.vertices[bz_vertices], bz_ridges, bz_facets
+
+def make_isovolume(vol, vmax, vmin=-1e40, scalars=None):
+    """
+    vol: UniformGrid/ImageData/RectilinearGrid/UnstructuredGrid with a scalar field
+    vmin,vmax: inclusive bounds for the isovolume
+    scalars: name of the scalar array (defaults to active)
+    prefer: 'point' or 'cells' — which data association to use for thresholding
+    """
+    # Ensure the intended scalars are active
+    if scalars is not None:
+        vol = vol.copy()
+        vol.set_active_scalars(scalars)
+
+    # Threshold returns an UnstructuredGrid (volumetric cells)
+    iso_vol = vol.clip_scalar(
+        scalars=scalars, value=vmin, invert=False,
+    ).clip_scalar(
+        scalars=scalars, value=vmax, invert=True,
+    )
+
+    return iso_vol
