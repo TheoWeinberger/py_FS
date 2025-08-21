@@ -152,9 +152,12 @@ def main():
     for file in files:
 
         print(file)
-        if shift_energy_list is not None:
-            shift_energy = shift_energy_list[counter]
-        else:
+        try:
+            if len(shift_energy_list) > 1:
+                shift_energy = shift_energy_list[counter]
+            else:
+                shift_energy = args.shift_energy
+        except:
             shift_energy = args.shift_energy
 
         k_vectors, eig_vals, e_f, cell, dimensions, isos, _ = read_bxsf(
