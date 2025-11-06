@@ -382,7 +382,7 @@ def read_bxsf(file_name: str, scale: int, order: int, shift_energy: float, fermi
 
     return k_vectors, eig_vals, e_f, cell, dimensions, isos, grid
 
-def calculate_shift(file_names: list, scale: int, order: int, shift_energy: float, bz_surf: pv.StructuredGrid) -> tuple[np.float, np.float]:
+def calculate_shift(file_names: list, scale: int, order: int, shift_energy: float, bz_surf: pv.StructuredGrid) -> tuple[np.float64, np.float64]:
     """
     Compute the energy shift for the second band so that the sum of enclosed
     volumes from two isosurfaces remains constant after shifting the first band.
@@ -395,7 +395,7 @@ def calculate_shift(file_names: list, scale: int, order: int, shift_energy: floa
         bz_surf (pv.StructuredGrid): Brillouin zone surface for clipping
 
     Returns:
-        tuple[np.float, np.float]:
+        tuple[np.float64, np.float64]:
             (delta2, carrier_vol)
             where delta2 is the required shift for band 2, and carrier_vol
             is the original total enclosed volume (vol1_orig + vol2_orig).
