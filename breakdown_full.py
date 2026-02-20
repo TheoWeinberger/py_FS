@@ -6,7 +6,7 @@ import numpy as np
 import pyvista as pv
 import seaborn as sns
 import scipy.constants as ct
-from scipy.interpolate import CubicSpline
+from scipy.interpolate import CubicSpline, splprep, splev
 from scipy.spatial import distance_matrix
 
 from src.utils import (
@@ -26,28 +26,26 @@ INV_ANG_TO_INV_M = 1 / ANGSTROM_M
 # ============================================================================
 
 def interpolate_loop(loop_points: np.ndarray, factor: int) -> np.ndarray:
-    """Closes and smoothes the orbit loop using cubic splines."""
+    """Smoothes the orbit loop using parametric splines designed for closed curves."""
     if len(loop_points) < 3:
         return loop_points
-    # Close the loop by appending the first point to the end
-    closed_loop = np.vstack([loop_points, loop_points[0]])
-    t = np.arange(len(closed_loop))
-    t_fine = np.linspace(0, len(closed_loop) - 1, factor * len(loop_points))
-    cs = CubicSpline(t, closed_loop, bc_type="periodic")
-    fine_points = cs(t_fine)
-    # Return the interpolated points (without duplicating the endpoint)
-    return fine_points[:-1] if fine_points[-1] is not fine_points[0] else fine_points[:-1]
+    # Use splprep for parametric spline fitting on closed curves
+    # s=0 means exact fit, per=1 means periodic (closed curve)
+    tck, u = splprep(loop_points.T, s=0, per=True, k=min(3, len(loop_points) - 1))
+    # Evaluate at finer resolution
+    u_fine = np.linspace(0, 1, factor * len(loop_points), endpoint=False)
+    fine_points = np.column_stack(splev(u_fine, tck))
+    return fine_points
 
 def calculate_curvature_radius(loop: np.ndarray, point: np.ndarray) -> float:
     """Calculate radius of curvature at closest point on loop"""
     idx = np.argmin(np.linalg.norm(loop - point, axis=1))
-    # Close the loop for periodic boundary conditions
-    closed_loop = np.vstack([loop, loop[0]])
-    t = np.arange(len(closed_loop))
-    cs = CubicSpline(t, closed_loop, bc_type="periodic")
+    # Use splprep for parametric spline fitting on closed curves
+    tck, u = splprep(loop.T, s=0, per=True, k=min(3, len(loop) - 1))
     
-    r1 = cs(idx, 1) # First derivative (tangent)
-    r2 = cs(idx, 2) # Second derivative
+    # Evaluate derivatives at the closest point
+    r1 = np.array(splev(u[idx], tck, der=1))  # First derivative (tangent)
+    r2 = np.array(splev(u[idx], tck, der=2))  # Second derivative
     
     mag_r1 = np.linalg.norm(r1)
     mag_cross = np.linalg.norm(np.cross(r1, r2))
