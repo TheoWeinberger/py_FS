@@ -32,11 +32,12 @@ def interpolate_loop(loop_points: np.ndarray, factor: int) -> np.ndarray:
     # Use splprep for parametric spline fitting on closed curves
     # s=0 means exact fit, per=1 means periodic (closed curve)
     tck, u = splprep(loop_points.T, s=0, per=True, k=min(3, len(loop_points) - 1))
-    # Evaluate at finer resolution, ensuring the curve closes properly
-    u_fine = np.linspace(0, 1, factor * len(loop_points), endpoint=True)
+    # Evaluate at finer resolution without the endpoint (to avoid duplication)
+    u_fine = np.linspace(0, 1, factor * len(loop_points), endpoint=False)
     fine_points = np.column_stack(splev(u_fine, tck))
-    # Remove the last point since it's identical to the first (due to periodicity)
-    return fine_points[:-1]
+    # Explicitly close the loop by appending the first point
+    fine_points = np.vstack([fine_points, fine_points[0]])
+    return fine_points
 
 def calculate_curvature_radius(loop: np.ndarray, point: np.ndarray) -> float:
     """Calculate radius of curvature at closest point on loop"""
