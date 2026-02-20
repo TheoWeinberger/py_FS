@@ -29,17 +29,22 @@ def interpolate_loop(loop_points: np.ndarray, factor: int) -> np.ndarray:
     """Closes and smoothes the orbit loop using cubic splines."""
     if len(loop_points) < 3:
         return loop_points
-    t = np.arange(len(loop_points))
-    t_fine = np.linspace(0, len(loop_points) - 1, factor * len(loop_points))
-    cs = CubicSpline(t, loop_points, bc_type="periodic")
+    # Close the loop by appending the first point to the end
+    closed_loop = np.vstack([loop_points, loop_points[0]])
+    t = np.arange(len(closed_loop))
+    t_fine = np.linspace(0, len(closed_loop) - 1, factor * len(loop_points))
+    cs = CubicSpline(t, closed_loop, bc_type="periodic")
     fine_points = cs(t_fine)
-    return np.vstack([fine_points, fine_points[0]])
+    # Return the interpolated points (without duplicating the endpoint)
+    return fine_points[:-1] if fine_points[-1] is not fine_points[0] else fine_points[:-1]
 
 def calculate_curvature_radius(loop: np.ndarray, point: np.ndarray) -> float:
     """Calculate radius of curvature at closest point on loop"""
     idx = np.argmin(np.linalg.norm(loop - point, axis=1))
-    t = np.arange(len(loop))
-    cs = CubicSpline(t, loop, bc_type="periodic")
+    # Close the loop for periodic boundary conditions
+    closed_loop = np.vstack([loop, loop[0]])
+    t = np.arange(len(closed_loop))
+    cs = CubicSpline(t, closed_loop, bc_type="periodic")
     
     r1 = cs(idx, 1) # First derivative (tangent)
     r2 = cs(idx, 2) # Second derivative
