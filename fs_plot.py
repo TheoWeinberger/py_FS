@@ -36,7 +36,7 @@ plt.style.use(["nature"])
 cp = sns.color_palette("Set2")
 # pv.rcParams['transparent_background'] = True
 
-def colormap_between_colors(color1="#57D3DB", color2="#DB5F57", name="custom_cmap", white_midpoint=True):
+def colormap_between_colors(color1="#57D3DB", color2="#DB5F57", name="custom_cmap", white_midpoint=False):
     """
     Create a smooth colormap between two colors, optionally with white in the middle.
     
