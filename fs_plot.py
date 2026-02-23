@@ -206,14 +206,14 @@ def main():
                         lighting=True,
                         scalars="fermi_velocity",
                         cmap=cp,
-                        opacity=1.0,
+                        opacity=args.opacity,
                     )
                     plotter.add_mesh(
                         iso,
                         lighting=True,
                         scalars="fermi_velocity",
                         cmap=cp,
-                        opacity=1.0,
+                        opacity=args.opacity,
                     )
                     if args.colourbar == False:
                         plotter.remove_scalar_bar()
@@ -225,7 +225,7 @@ def main():
                             lighting=True,
                             scalars="fermi_velocity",
                             cmap=cp,
-                            opacity=1.0,
+                            opacity=args.opacity,
                         )
                         if args.colourbar == False:
                             plotter_int.remove_scalar_bar()
@@ -263,14 +263,14 @@ def main():
                         lighting=True,
                         scalars="scalar_field",
                         cmap=cp,
-                        opacity=1.0,
+                        opacity=args.opacity,
                     )
                     plotter.add_mesh(
                         iso,
                         lighting=True,
                         scalars="scalar_field",
                         cmap=cp,
-                        opacity=1.0,
+                        opacity=args.opacity,
                     )
 
                     if args.colourbar == False:
@@ -283,7 +283,7 @@ def main():
                             lighting=True,
                             scalars="scalar_field",
                             cmap=cp,
-                            opacity=1.0,
+                            opacity=args.opacity,
                         )
                         if args.colourbar == False:
                             plotter_int.remove_scalar_bar()
