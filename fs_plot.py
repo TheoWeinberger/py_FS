@@ -70,7 +70,6 @@ def colormap_between_colors(color1="#57D3DB", color2="#DB5F57", name="custom_cma
         positions = [0.0, 1.0]
     
     cmap = mpl.colors.LinearSegmentedColormap.from_list(name, list(zip(positions, colors)))
-    mpl.cm.register_cmap(cmap=cmap)
     return cmap
 
 
