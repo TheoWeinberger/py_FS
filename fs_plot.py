@@ -36,43 +36,6 @@ plt.style.use(["nature"])
 cp = sns.color_palette("Set2")
 # pv.rcParams['transparent_background'] = True
 
-def colormap_between_colors(color1="#57D3DB", color2="#DB5F57", name="custom_cmap", white_midpoint=False):
-    """
-    Create a smooth colormap between two colors, optionally with white in the middle.
-    
-    Parameters
-    ----------
-    color1 : str
-        Hex color code for the start color
-    color2 : str
-        Hex color code for the end color
-    name : str
-        Name for the colormap
-    white_midpoint : bool
-        If True, place white at the midpoint of the colormap
-    
-    Returns
-    -------
-    cmap : matplotlib colormap
-        A custom colormap between the two colors
-    """
-    # Convert hex to RGB
-    c1 = mpl.colors.hex2color(color1)
-    c2 = mpl.colors.hex2color(color2)
-    
-    if white_midpoint:
-        # Create colormap: color1 -> white -> color2
-        colors = [c1, (1, 1, 1), c2]
-        positions = [0.0, 0.5, 1.0]
-    else:
-        # Create colormap: color1 -> color2
-        colors = [c1, c2]
-        positions = [0.0, 1.0]
-    
-    cmap = mpl.colors.LinearSegmentedColormap.from_list(name, list(zip(positions, colors)))
-    return cmap
-
-
 
 def main():
     # parse command line arguments
@@ -219,7 +182,7 @@ def main():
         )
 
         if args.scalar != "None" or args.fermi_velocity is True:
-            cp = colormap_between_colors()
+            cp = sns.color_palette(args.colourmap, as_cmap=True)
 
         if projection == "parallel":
             plotter_ind.enable_parallel_projection()
