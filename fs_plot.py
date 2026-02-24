@@ -182,6 +182,7 @@ def main():
                 scalar=args.scalar,
             )
         else:
+            print("hi")
             k_vectors, eig_vals, e_f, cell, dimensions, isos, _ = read_bxsf(
                 file,
                 scale,
