@@ -137,6 +137,8 @@ def main():
     if args.scalar != "None":
         scalar_files = load_files(args.scalar, args)
         scalar_files.sort()
+    print(scalar_files)
+    exit()
     
     
     if args.shift_energy_pair != 0.0:
@@ -149,15 +151,19 @@ def main():
 
         print(file)
         if args.scalar != "None":
-            scalar_file = scalar_files[counter]
-            print(scalar_file)
-            _, scalar_vals, _, _, _, _, _ = read_bxsf(
-                scalar_file,
-                1,
-                order=1,
-                shift_energy=0,
-                fermi_velocity=False,
-            )
+            try:
+                scalar_file = scalar_files[counter]
+                print(scalar_file)
+                _, scalar_vals, _, _, _, _, _ = read_bxsf(
+                    scalar_file,
+                    1,
+                    order=1,
+                    shift_energy=0,
+                    fermi_velocity=False,
+                )
+            except IndexError:
+                print(f"Error: No scalar file found for band {counter}")
+
         try:
             if len(shift_energy_list) > 1:
                 shift_energy = shift_energy_list[counter]
@@ -165,15 +171,25 @@ def main():
                 shift_energy = args.shift_energy
         except:
             shift_energy = args.shift_energy
-
-        k_vectors, eig_vals, e_f, cell, dimensions, isos, _ = read_bxsf(
-            file,
-            scale,
-            order=order,
-            shift_energy=shift_energy,
-            fermi_velocity=args.fermi_velocity,
-            scalar=args.scalar,
-        )
+            
+        if args.scalar != "None":
+            k_vectors, eig_vals, e_f, cell, dimensions, isos, _ = read_bxsf(
+                file,
+                scale,
+                order=order,
+                shift_energy=shift_energy,
+                fermi_velocity=args.fermi_velocity,
+                scalar=args.scalar,
+            )
+        else:
+            k_vectors, eig_vals, e_f, cell, dimensions, isos, _ = read_bxsf(
+                file,
+                scale,
+                order=order,
+                shift_energy=shift_energy,
+                fermi_velocity=args.fermi_velocity,
+                scalar=scalar_file,
+            )
 
         vec1 = cell[0] * (dimensions[0] - scale) / dimensions[0]
         vec2 = cell[1] * (dimensions[1] - scale) / dimensions[1]

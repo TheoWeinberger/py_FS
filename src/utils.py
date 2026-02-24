@@ -337,11 +337,9 @@ def read_bxsf(file_name: str, scale: int, order: int, shift_energy: float, fermi
     grid, e_f, dimensions_int, k_vectors, eig_vals, cell = generate_energy_grid(file_name, scale, order, lines)
 
     if scalar != "None":
-        scalar_files = glob.glob(scalar + "*bxsf*")
         try:
-            scalar_file = scalar_files[0]
             _, _, _, _, _, _, scalar_grid = read_bxsf(
-                scalar_file, scale, order, 0, False
+                scalar, scale, order, 0, False
             )
             grid.point_data["scalar_field"] = scalar_grid["values"]
         except:
