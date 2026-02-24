@@ -7,11 +7,12 @@ import re
 import pyvista as pv
 import argparse
 
-def load_files(args: argparse.Namespace) -> list[str]:
+def load_files(name, args: argparse.Namespace) -> list[str]:
     """
     Function to load in bxsf files taking arguments to determine whether we have a spin polarised case
 
     Args:
+        name (str): Name of the system, used to identify the correct files
         args (argparse.Namespace): Command line arguments
 
     Returns:
@@ -26,25 +27,25 @@ def load_files(args: argparse.Namespace) -> list[str]:
             try:
                 if args.spin == "u":
                     files += glob.glob(
-                        args.name + "*bxsf.band-" + str(band) + "_up"
+                        name + "*bxsf.band-" + str(band) + "_up"
                     )
                 elif args.spin == "d":
                     files += glob.glob(
-                        args.name + "*bxsf.band-" + str(band) + "_up"
+                        name + "*bxsf.band-" + str(band) + "_up"
                     )
                 elif args.spin == "ud":
                     files += glob.glob(
-                        args.name + "*bxsf.band-" + str(band) + "_*"
+                        name + "*bxsf.band-" + str(band) + "_*"
                     )
                 elif args.spin == "n":
-                    files += glob.glob(args.name + "*bxsf.band-" + str(band))
+                    files += glob.glob(name + "*bxsf.band-" + str(band))
             except:
                 print(
                     f"Error: No matching band indices found for band {band}, check band indices"
                 )
                 exit()
     else:
-        files = glob.glob(args.name + "*bxsf.band-*")
+        files = glob.glob(name + "*bxsf.band-*")
         if args.spin == "u":
             files = [file for file in files if file[-2:] == "up"]
         elif args.spin == "d":

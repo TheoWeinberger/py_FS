@@ -58,7 +58,8 @@ def main():
         projection == "perspective"
 
     # load in bxsf files
-    files = load_files(args)
+    files = load_files(args.name, args)
+    file.sort()
     # error checking
     if len(files) == 0:
         print("Error: No .bxsf files found, check file name")
@@ -134,14 +135,9 @@ def main():
     counter = 0
 
     if args.scalar != "None":
-        scalar_file = glob.glob(args.scalar + "*bxsf*")[0]
-        _, scalar_vals, _, _, _, _, _ = read_bxsf(
-            scalar_file,
-            1,
-            order=1,
-            shift_energy=0,
-            fermi_velocity=False,
-        )
+        scalar_files = load_files(args.scalar, args)
+        scalar_files.sort()
+    
     
     if args.shift_energy_pair != 0.0:
         shift_energy_list = calculate_shift(files, scale, order, args.shift_energy_pair, bz_surf)
@@ -152,6 +148,15 @@ def main():
     for file in files:
 
         print(file)
+        if args.scalar != "None":
+            scalar_file = scalar_files[counter]
+            _, scalar_vals, _, _, _, _, _ = read_bxsf(
+                scalar_file,
+                1,
+                order=1,
+                shift_energy=0,
+                fermi_velocity=False,
+            )
         try:
             if len(shift_energy_list) > 1:
                 shift_energy = shift_energy_list[counter]
