@@ -137,8 +137,6 @@ def main():
     if args.scalar != "None":
         scalar_files = load_files(args.scalar, args)
         scalar_files.sort()
-    print(scalar_files)
-    exit()
     
     
     if args.shift_energy_pair != 0.0:
