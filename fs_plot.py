@@ -179,17 +179,16 @@ def main():
                 order=order,
                 shift_energy=shift_energy,
                 fermi_velocity=args.fermi_velocity,
-                scalar=args.scalar,
+                scalar=scalar_file,
             )
         else:
-            print("hi")
             k_vectors, eig_vals, e_f, cell, dimensions, isos, _ = read_bxsf(
                 file,
                 scale,
                 order=order,
                 shift_energy=shift_energy,
                 fermi_velocity=args.fermi_velocity,
-                scalar=scalar_file,
+                scalar=arg.scalar,
             )
 
         vec1 = cell[0] * (dimensions[0] - scale) / dimensions[0]
