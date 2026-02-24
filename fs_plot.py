@@ -186,7 +186,7 @@ def main():
                 order=order,
                 shift_energy=shift_energy,
                 fermi_velocity=args.fermi_velocity,
-                scalar=arg.scalar,
+                scalar=args.scalar,
             )
 
         vec1 = cell[0] * (dimensions[0] - scale) / dimensions[0]
