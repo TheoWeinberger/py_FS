@@ -367,7 +367,7 @@ def read_bxsf(file_name: str, scale: int, order: int, shift_energy: float, fermi
             if scale > 1:
                 iso1.point_data["fermi_velocity"] = -vf
             else:
-                iso1.point_data["fermi_velocity"] = vf
+                iso1.point_data["fermi_velocity"] = -vf
         except:
             pass
 

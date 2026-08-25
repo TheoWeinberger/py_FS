@@ -363,6 +363,10 @@ def args_parser() -> argparse.ArgumentParser:
                         help="Don't clip to BZ")
     parser.add_argument("-z", "--zoom", type=float, default=1.0,
                         help="Camera zoom factor")
+    parser.add_argument("-nbz", "--no-bz", type=bool, default=False,
+                        help="Don't plot BZ wireframe")
+    parser.add_argument("-o", "--output", type=str, default=None,
+                        help="Output file for saving the plot (e.g., 'breakdown.png' or 'breakdown.pdf')")
     
     return parser
 
@@ -677,23 +681,106 @@ def analyze_plane_mode(args):
     print(f"Critical Field B0:          {b0_str}")
     
     if args.plot:
-        print("\nGenerating 3D visualization...")
-        plotter = pv.Plotter()
+        print("\nGenerating 2D visualization along the plane normal...")
         
-        bz_poly = pv.PolyData(bz_vertices).delaunay_3d().extract_surface()
-        plotter.add_mesh(bz_poly, color="gray", opacity=0.1, label="First BZ")
+        # Create a 2D projection view along the normal direction
+        plane_normal_normalized = plane_normal / np.linalg.norm(plane_normal)
         
-        for edge in bz_ridges:
-            plotter.add_mesh(pv.MultipleLines(points=edge), color="gray", line_width=1)
+        # Create orthonormal basis for the plane
+        # Find two vectors perpendicular to the normal
+        if abs(plane_normal_normalized[0]) < 0.9:
+            u = np.cross(plane_normal_normalized, [1, 0, 0])
+        else:
+            u = np.cross(plane_normal_normalized, [0, 1, 0])
+        u = u / np.linalg.norm(u)
         
-        plotter.add_mesh(pv.MultipleLines(points=loop1), color="red", line_width=5, label=f"Orbit {band1}")
-        plotter.add_mesh(pv.MultipleLines(points=loop2), color="blue", line_width=5, label=f"Orbit {band2}")
-        plotter.add_mesh(pv.Line(p1, p2), color="black", line_width=5, label="Gap")
+        v = np.cross(plane_normal_normalized, u)
+        v = v / np.linalg.norm(v)
         
-        plotter.set_background("white")
-        plotter.camera.azimuth = args.azimuth
-        plotter.camera.elevation = args.elevation
-        plotter.show()
+        # Project orbits onto the plane
+        loop1_proj = np.column_stack([
+            np.dot(loop1 - plane_point, u),
+            np.dot(loop1 - plane_point, v)
+        ])
+        
+        loop2_proj = np.column_stack([
+            np.dot(loop2 - plane_point, u),
+            np.dot(loop2 - plane_point, v)
+        ])
+        
+        p1_proj = np.array([
+            np.dot(p1 - plane_point, u),
+            np.dot(p1 - plane_point, v)
+        ])
+        
+        p2_proj = np.array([
+            np.dot(p2 - plane_point, u),
+            np.dot(p2 - plane_point, v)
+        ])
+        
+        # Create matplotlib figure
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots(figsize=(10, 10), facecolor='white')
+        
+        # Plot BZ wireframe if not disabled
+        if not args.no_bz:
+            for edge in bz_ridges:
+                # Project BZ edges onto the plane
+                edge_proj = np.column_stack([
+                    np.dot(edge - plane_point, u),
+                    np.dot(edge - plane_point, v)
+                ])
+                ax.plot(edge_proj[:, 0], edge_proj[:, 1], 'gray', linewidth=0.5, alpha=0.5)
+        
+        # Plot orbits
+        ax.plot(loop1_proj[:, 0], loop1_proj[:, 1], 'r-', linewidth=2.5, label=f'Orbit {band1}')
+        ax.plot(loop2_proj[:, 0], loop2_proj[:, 1], 'b-', linewidth=2.5, label=f'Orbit {band2}')
+        
+        # Plot connecting line between closest points
+        ax.plot([p1_proj[0], p2_proj[0]], [p1_proj[1], p2_proj[1]], 'k--', linewidth=2, label='Gap')
+        
+        # Draw circles at the closest approach points (small solid dots)
+        circle1 = plt.Circle(p1_proj, 0.006 * np.linalg.norm(loop1_proj.max(axis=0) - loop1_proj.min(axis=0)), 
+                            color='red', fill=True, linewidth=0)
+        circle2 = plt.Circle(p2_proj, 0.006 * np.linalg.norm(loop2_proj.max(axis=0) - loop2_proj.min(axis=0)), 
+                            color='blue', fill=True, linewidth=0)
+        ax.add_patch(circle1)
+        ax.add_patch(circle2)
+        
+        ax.set_aspect('equal')
+        ax.grid(True, alpha=0.3)
+        
+        # Set axis limits - zoom to orbits if BZ is disabled
+        if args.no_bz:
+            # Calculate bounds of the orbits with some padding
+            all_proj = np.vstack([loop1_proj, loop2_proj])
+            x_min, x_max = all_proj[:, 0].min(), all_proj[:, 0].max()
+            y_min, y_max = all_proj[:, 1].min(), all_proj[:, 1].max()
+            
+            # Add 10% padding
+            x_padding = (x_max - x_min) * 0.1
+            y_padding = (y_max - y_min) * 0.1
+            
+            ax.set_xlim(x_min - x_padding, x_max + x_padding)
+            ax.set_ylim(y_min - y_padding, y_max + y_padding)
+        
+        # Remove axes for clean appearance
+        ax.set_facecolor('white')
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['bottom'].set_visible(False)
+        ax.spines['left'].set_visible(False)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        
+        plt.tight_layout()
+        
+        # Save plot if output filename specified
+        if args.output:
+            plt.savefig(args.output, dpi=300, bbox_inches='tight', facecolor='white')
+            print(f"Plot saved to {args.output}")
+        
+        plt.show()
 
 def main():
     args = args_parser().parse_args()
