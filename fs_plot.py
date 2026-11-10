@@ -121,8 +121,17 @@ def main():
     # get cell for FS plot
     _, _, _, _, _, _, cell = read_bxsf_info(files[0])
 
-    # generate BZ from voronoi analysis
-    v, e, f = get_brillouin_zone_3d(cell)
+    sampling_cell = None
+    if args.conventional_bz:
+        try:
+            sampling_cell = get_conventional_reciprocal_cell(cell)
+        except (ImportError, ValueError) as err:
+            parser.error(str(err))
+
+    # Use the same zone for the boundary, sampling and surface clipping.
+    v, e, f = get_brillouin_zone_3d(
+        cell if sampling_cell is None else sampling_cell
+    )
 
     # triangulate BZ surface
     bz_surf = pv.PolyData(v)
@@ -140,7 +149,7 @@ def main():
     
     
     if args.shift_energy_pair != 0.0:
-        shift_energy_list = calculate_shift(files, scale, order, args.shift_energy_pair, bz_surf)
+        shift_energy_list = calculate_shift(files, scale, order, args.shift_energy_pair, bz_surf, sampling_cell=sampling_cell)
         print(f"Shift energy for first band: {shift_energy_list[0]}")
         print(f"Shift energy for second band: {shift_energy_list[1]}")
 
@@ -178,6 +187,7 @@ def main():
                 shift_energy=shift_energy,
                 fermi_velocity=args.fermi_velocity,
                 scalar=scalar_file,
+                sampling_cell=sampling_cell,
             )
         else:
             k_vectors, eig_vals, e_f, cell, dimensions, isos, _ = read_bxsf(
@@ -187,6 +197,7 @@ def main():
                 shift_energy=shift_energy,
                 fermi_velocity=args.fermi_velocity,
                 scalar=args.scalar,
+                sampling_cell=sampling_cell,
             )
 
         vec1 = cell[0] * (dimensions[0] - scale) / dimensions[0]

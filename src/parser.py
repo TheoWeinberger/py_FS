@@ -200,6 +200,11 @@ def args_parser() -> argparse.ArgumentParser:
         default=1,
     )
     parser.add_argument(
+        "--conventional-bz",
+        action="store_true",
+        help="Plot the extended BZ of the conventional reciprocal cell (requires spglib)",
+    )
+    parser.add_argument(
         "-nc",
         "--no-clip",
         metavar="\b",

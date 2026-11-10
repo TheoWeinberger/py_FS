@@ -19,6 +19,25 @@ Python script for plotting Fermi surfaces in .bxsf format.
 ## Usage
 In a directory containing .bxsf files with format case.bxsf.band-n run fs_plot.py case to plot the fermi surface.
 
+To plot in the conventional extended Brillouin zone, use:
+
+```bash
+python fs_plot.py -n ute2 --conventional-bz
+```
+
+This option requires `spglib` (`pip install spglib`). It determines the
+conventional cell of the **reciprocal lattice** while preserving the input
+Cartesian orientation, then draws its Wigner–Seitz boundary. The shape follows
+the lattice: for example, a box for orthorhombic/tetragonal reciprocal cells and
+a hexagonal prism for hexagonal cells. For the supplied UTe₂ files, the box spans
+±0.12834799, ±0.08695000 and ±0.03831300 along the input Cartesian axes, in BXSF
+reciprocal units.
+
+Band energies and optional scalar fields are periodically sampled throughout
+this zone, and the Fermi surface is clipped to the same boundary. This is an
+extended-zone visualization; it does not compute spectral unfolding weights.
+Without the flag, the original primitive Wigner–Seitz BZ is used.
+
 ## Dependencies
 
 This code has been developed and tested with the following packages on a Linux 22.04 LTS system:

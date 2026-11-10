@@ -142,7 +142,7 @@ def read_bxsf_info(file_name: str) -> tuple[np.ndarray, np.ndarray, np.ndarray, 
     return vec_1, vec_2, vec_3, dimensions, band_index, e_f, cell
 
 
-def generate_energy_grid(file_name: str, scale: int, order: int, lines) -> tuple[pv.StructuredGrid, float, list[int], np.ndarray, np.ndarray]:
+def generate_energy_grid(file_name: str, scale: int, order: int, lines, sampling_cell=None) -> tuple[pv.StructuredGrid, float, list[int], np.ndarray, np.ndarray]:
     """
     Reads the bxsf file and generates a structured grid for the energy values
     This function is used to create a grid for the energy values in the bxsf file.
@@ -155,6 +155,7 @@ def generate_energy_grid(file_name: str, scale: int, order: int, lines) -> tuple
         scale (int): Scaling factor for interpolation
         order (int): Order of interpolation
         lines (list[str]): Lines from the bxsf file
+        sampling_cell (np.ndarray, optional): Reciprocal basis for an extended plotting zone.
 
     Returns:
         tuple: Contains the structured grid, Fermi energy, dimensions, k vectors, and eigenvalues
@@ -187,6 +188,12 @@ def generate_energy_grid(file_name: str, scale: int, order: int, lines) -> tuple
     eigen_vals = [float(val) for val in eigen_vals]
 
     eig_vals = np.reshape(eigen_vals, dimensions, order="C")
+
+    if sampling_cell is not None:
+        grid, dimensions_int, k_vectors = sample_extended_grid(
+            eig_vals, cell, sampling_cell, scale, order
+        )
+        return grid, e_f, dimensions_int, k_vectors, eig_vals, cell
 
     """    eig_vals = np.zeros(dimensions)
     for i in range(dimensions[0]):
@@ -315,7 +322,7 @@ def generate_energy_grid(file_name: str, scale: int, order: int, lines) -> tuple
     return grid, e_f, dimensions_int, k_vectors, eig_vals, cell
 
 
-def read_bxsf(file_name: str, scale: int, order: int, shift_energy: float, fermi_velocity: bool, scalar: str = "None") -> tuple[np.ndarray, np.ndarray, float, np.ndarray, list[int], list[pv.PolyData], pv.StructuredGrid]:
+def read_bxsf(file_name: str, scale: int, order: int, shift_energy: float, fermi_velocity: bool, scalar: str = "None", sampling_cell=None) -> tuple[np.ndarray, np.ndarray, float, np.ndarray, list[int], list[pv.PolyData], pv.StructuredGrid]:
     """
     Reads .bxsf file and determines two matrices, one corresponding to the eigenvalues and the other the k space vectors
 
@@ -326,6 +333,7 @@ def read_bxsf(file_name: str, scale: int, order: int, shift_energy: float, fermi
         shift_energy (float): Shift in the Fermi energy
         fermi_velocity (bool): Whether to compute the Fermi velocity on the surface
         scalar (str, optional): Name of file containing a scalar field to plot on the Fermi surface. Defaults to "None".
+        sampling_cell (np.ndarray, optional): Reciprocal basis for an extended plotting zone.
 
     Returns:
         tuple: Contains k_vectors, eigenvalues, Fermi energy, cell matrix, dimensions, isosurfaces, and grid
@@ -334,12 +342,12 @@ def read_bxsf(file_name: str, scale: int, order: int, shift_energy: float, fermi
     f = open(file_name, "r")
     lines = f.readlines()
 
-    grid, e_f, dimensions_int, k_vectors, eig_vals, cell = generate_energy_grid(file_name, scale, order, lines)
+    grid, e_f, dimensions_int, k_vectors, eig_vals, cell = generate_energy_grid(file_name, scale, order, lines, sampling_cell=sampling_cell)
 
     if scalar != "None":
         try:
             _, _, _, _, _, _, scalar_grid = read_bxsf(
-                scalar, scale, order, 0, False
+                scalar, scale, order, 0, False, sampling_cell=sampling_cell
             )
             grid.point_data["scalar_field"] = scalar_grid["values"]
         except:
@@ -381,7 +389,7 @@ def read_bxsf(file_name: str, scale: int, order: int, shift_energy: float, fermi
 
     return k_vectors, eig_vals, e_f, cell, dimensions, isos, grid
 
-def calculate_shift(file_names: list, scale: int, order: int, shift_energy: float, bz_surf: pv.StructuredGrid) -> tuple[np.float64, np.float64]:
+def calculate_shift(file_names: list, scale: int, order: int, shift_energy: float, bz_surf: pv.StructuredGrid, sampling_cell=None) -> tuple[np.float64, np.float64]:
     """
     Compute the energy shift for the second band so that the sum of enclosed
     volumes from two isosurfaces remains constant after shifting the first band.
@@ -392,6 +400,7 @@ def calculate_shift(file_names: list, scale: int, order: int, shift_energy: floa
         order (int): Order of interpolation
         shift_energy (float): Shift applied to band 1's Fermi level (in same units as e_f)
         bz_surf (pv.StructuredGrid): Brillouin zone surface for clipping
+        sampling_cell (np.ndarray, optional): Reciprocal basis for an extended plotting zone.
 
     Returns:
         tuple[np.float64, np.float64]:
@@ -405,7 +414,7 @@ def calculate_shift(file_names: list, scale: int, order: int, shift_energy: floa
     with open(file_name, "r") as f:
         lines1 = f.readlines()
 
-    grid1, e_f1, dimensions_int1, k_vectors1, eig_vals1, cell1 = generate_energy_grid(file_name, scale, order, lines1)
+    grid1, e_f1, dimensions_int1, k_vectors1, eig_vals1, cell1 = generate_energy_grid(file_name, scale, order, lines1, sampling_cell=sampling_cell)
 
     vol1_orig  = make_isovolume(grid1, e_f1,               scalars="values").clip_surface(bz_surf, invert=True).volume
     vol1_shift = make_isovolume(grid1, e_f1 + shift_energy, scalars="values").clip_surface(bz_surf, invert=True).volume
@@ -415,7 +424,7 @@ def calculate_shift(file_names: list, scale: int, order: int, shift_energy: floa
     with open(file_name, "r") as f:
         lines2 = f.readlines()
 
-    grid2, e_f2, dimensions_int2, k_vectors2, eig_vals2, cell2 = generate_energy_grid(file_name, scale, order, lines2)
+    grid2, e_f2, dimensions_int2, k_vectors2, eig_vals2, cell2 = generate_energy_grid(file_name, scale, order, lines2, sampling_cell=sampling_cell)
 
     def vol2_at(delta2: float) -> float:
         return make_isovolume(grid2, e_f2 + delta2, scalars="values").clip_surface(bz_surf, invert=True).volume
@@ -485,6 +494,59 @@ def calculate_shift(file_names: list, scale: int, order: int, shift_energy: floa
     vol2_shift = make_isovolume(grid2, e_f2 + delta2, scalars="values").clip_surface(bz_surf, invert=True).volume
 
     return shift_energy, delta2
+
+
+def get_conventional_reciprocal_cell(cell: np.ndarray) -> np.ndarray:
+    """Find the conventional cell of the reciprocal lattice, in the input frame.
+
+    Treat reciprocal lattice points as identical sites. Standardizing this
+    lattice, rather than the real-space lattice, gives an extended zone for
+    centred reciprocal lattices. No idealization keeps Cartesian directions.
+    """
+    try:
+        import spglib
+    except ImportError as exc:
+        raise ImportError(
+            "--conventional-bz requires spglib; install it with 'pip install spglib'"
+        ) from exc
+
+    standardized = spglib.standardize_cell(
+        (cell, [[0.0, 0.0, 0.0]], [1]),
+        to_primitive=False,
+        no_idealize=True,
+        symprec=1e-5 * np.min(np.linalg.norm(cell, axis=1)),
+    )
+    if standardized is None:
+        raise ValueError("Could not determine the conventional reciprocal cell")
+    return np.asarray(standardized[0])
+
+
+def sample_extended_grid(eigenvalues, cell, sampling_cell, scale, order):
+    """Sample periodic BXSF energies over the full requested plotting zone.
+
+    BXSF includes the repeated endpoint on each axis. Remove those endpoints
+    before periodic interpolation so translations by a primitive reciprocal
+    vector reproduce exactly the same energies and scalar fields.
+    """
+    values = eigenvalues[:-1, :-1, :-1]
+    periods = np.asarray(values.shape)
+    transform = sampling_cell @ np.linalg.inv(cell)
+    vertices, _, _ = get_brillouin_zone_3d(sampling_cell)
+    fractional_vertices = vertices @ np.linalg.inv(sampling_cell)
+    # Match or exceed the native sampling density along each new basis vector.
+    density = scale * np.sum(np.abs(transform) * periods, axis=1)
+    lower = fractional_vertices.min(axis=0) - 1 / density
+    upper = fractional_vertices.max(axis=0) + 1 / density
+    dimensions = np.ceil((upper - lower) * density).astype(int) + 1
+    axes = [np.linspace(lo, hi, n) for lo, hi, n in zip(lower, upper, dimensions)]
+    fractional = np.stack(np.meshgrid(*axes, indexing="ij"), axis=-1)
+    points = fractional @ sampling_cell
+    primitive = fractional @ transform
+    coordinates = (np.mod(primitive, 1.0) * periods).reshape(-1, 3).T
+    energies = map_coordinates(values, coordinates, order=order, mode="grid-wrap")
+    grid = pv.StructuredGrid(points[..., 0], points[..., 1], points[..., 2])
+    grid.point_data["values"] = energies.reshape(tuple(dimensions)).ravel(order="F")
+    return grid, dimensions.tolist(), points.reshape(-1, 3)
 
 
 def get_brillouin_zone_3d(cell: np.ndarray) -> tuple[np.ndarray, list[np.ndarray], list[np.ndarray]]:
